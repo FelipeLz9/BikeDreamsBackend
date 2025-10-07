@@ -1,13 +1,10 @@
-import { prisma } from '../prisma/client.js';
+import { normalizeNews } from "../utils/normalizers.js";
 
-export const getNews = async () => {
-    return await prisma.news.findMany();
-};
+export async function getNews() {
+  const res = await fetch("http://localhost:4000/news");
+  const data = await res.json();
 
-export const getNewsById = async ({ params }: { params: { id: string } }) => {
-    return await prisma.news.findUnique({ where: { id: params.id } });
-};
+  const news = (data.news || []).map(normalizeNews);
 
-export const createNews = async ({ body }: { body: { title: string, content: string } }) => {
-    return await prisma.news.create({ data: body });
-};
+  return { total: news.length, news };
+}
