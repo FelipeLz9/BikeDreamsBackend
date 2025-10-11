@@ -1,0 +1,388 @@
+// Mocks
+jest.mock('../../services/authService', () => ({
+  verifyToken: jest.fn(),
+  checkPermissions: jest.fn(),
+  isTokenRevoked: jest.fn()
+}));
+
+jest.mock('../../services/securityLogger', () => ({
+  SecurityLogger: {
+    logAuthenticationAttempt: jest.fn(),
+    logSecurityEvent: jest.fn()
+  },
+  logSecurityEvent: jest.fn()
+}));
+
+import { authMiddleware, requireRole, requirePermission } from '../../middleware/authMiddleware';
+import { verifyToken, checkPermissions, isTokenRevoked } from '../../services/authService';
+
+describe('🔒 Auth Middleware', () => {
+  let mockContext: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockContext = {
+      request: {
+        url: '/api/protected',
+        method: 'GET'
+      },
+      headers: {
+        authorization: 'Bearer valid-token',
+        'x-forwarded-for': '192.168.1.1'
+      },
+      set: {
+        status: jest.fn(),
+        headers: {}
+      },
+      user: undefined
+    };
+  });
+
+  describe('authMiddleware', () => {
+    test('should authenticate valid token and set user', async () => {
+      const mockUser = {
+        id: 1,
+        email: 'test@example.com',
+        role: 'CLIENT',
+        permissions: ['read', 'write']
+      };
+
+      (verifyToken as jest.Mock).mockResolvedValue(mockUser);
+      (isTokenRevoked as jest.Mock).mockResolvedValue(false);
+
+      const result = await authMiddleware(mockContext);
+
+      expect(verifyToken).toHaveBeenCalledWith('valid-token');
+      expect(isTokenRevoked).toHaveBeenCalledWith('valid-token');
+      expect(mockContext.user).toEqual(mockUser);
+      expect(result).toBeUndefined(); // Should pass through
+    });
+
+    test('should reject missing authorization header', async () => {
+      mockContext.headers.authorization = undefined;
+
+      try {
+        await authMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Authorization header missing');
+        expect(mockContext.set.status).toHaveBeenCalledWith(401);
+      }
+    });
+
+    test('should reject malformed authorization header', async () => {
+      mockContext.headers.authorization = 'Invalid format';
+
+      try {
+        await authMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Invalid authorization format');
+        expect(mockContext.set.status).toHaveBeenCalledWith(401);
+      }
+    });
+
+    test('should reject invalid token', async () => {
+      (verifyToken as jest.Mock).mockRejectedValue(new Error('Invalid token'));
+
+      try {
+        await authMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Invalid token');
+        expect(mockContext.set.status).toHaveBeenCalledWith(401);
+      }
+    });
+
+    test('should reject revoked token', async () => {
+      const mockUser = {
+        id: 1,
+        email: 'test@example.com',
+        role: 'CLIENT'
+      };
+
+      (verifyToken as jest.Mock).mockResolvedValue(mockUser);
+      (isTokenRevoked as jest.Mock).mockResolvedValue(true);
+
+      try {
+        await authMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Token has been revoked');
+        expect(mockContext.set.status).toHaveBeenCalledWith(401);
+      }
+    });
+
+    test('should handle Bearer token with proper format', async () => {
+      const mockUser = {
+        id: 1,
+        email: 'test@example.com',
+        role: 'ADMIN'
+      };
+
+      mockContext.headers.authorization = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+      (verifyToken as jest.Mock).mockResolvedValue(mockUser);
+      (isTokenRevoked as jest.Mock).mockResolvedValue(false);
+
+      const result = await authMiddleware(mockContext);
+
+      expect(verifyToken).toHaveBeenCalledWith('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...');
+      expect(mockContext.user).toEqual(mockUser);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('requireRole', () => {
+    test('should allow user with correct role', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'admin@example.com',
+        role: 'ADMIN'
+      };
+
+      const roleMiddleware = requireRole('ADMIN');
+      const result = await roleMiddleware(mockContext);
+
+      expect(result).toBeUndefined(); // Should pass through
+    });
+
+    test('should block user with incorrect role', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'client@example.com',
+        role: 'CLIENT'
+      };
+
+      const roleMiddleware = requireRole('ADMIN');
+
+      try {
+        await roleMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Insufficient permissions');
+        expect(mockContext.set.status).toHaveBeenCalledWith(403);
+      }
+    });
+
+    test('should block unauthenticated user', async () => {
+      mockContext.user = undefined;
+
+      const roleMiddleware = requireRole('CLIENT');
+
+      try {
+        await roleMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('User not authenticated');
+        expect(mockContext.set.status).toHaveBeenCalledWith(401);
+      }
+    });
+
+    test('should allow multiple valid roles', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'user@example.com',
+        role: 'CLIENT'
+      };
+
+      const roleMiddleware = requireRole(['ADMIN', 'CLIENT']);
+      const result = await roleMiddleware(mockContext);
+
+      expect(result).toBeUndefined(); // Should pass through
+    });
+
+    test('should block user not in any of the required roles', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'guest@example.com',
+        role: 'GUEST'
+      };
+
+      const roleMiddleware = requireRole(['ADMIN', 'CLIENT']);
+
+      try {
+        await roleMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Insufficient permissions');
+        expect(mockContext.set.status).toHaveBeenCalledWith(403);
+      }
+    });
+  });
+
+  describe('requirePermission', () => {
+    test('should allow user with correct permission', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'user@example.com',
+        role: 'CLIENT',
+        permissions: ['read', 'write', 'delete']
+      };
+
+      (checkPermissions as jest.Mock).mockReturnValue(true);
+
+      const permissionMiddleware = requirePermission('write');
+      const result = await permissionMiddleware(mockContext);
+
+      expect(checkPermissions).toHaveBeenCalledWith(mockContext.user, 'write');
+      expect(result).toBeUndefined(); // Should pass through
+    });
+
+    test('should block user without required permission', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'user@example.com',
+        role: 'CLIENT',
+        permissions: ['read']
+      };
+
+      (checkPermissions as jest.Mock).mockReturnValue(false);
+
+      const permissionMiddleware = requirePermission('write');
+
+      try {
+        await permissionMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Insufficient permissions');
+        expect(mockContext.set.status).toHaveBeenCalledWith(403);
+      }
+    });
+
+    test('should block unauthenticated user', async () => {
+      mockContext.user = undefined;
+
+      const permissionMiddleware = requirePermission('read');
+
+      try {
+        await permissionMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('User not authenticated');
+        expect(mockContext.set.status).toHaveBeenCalledWith(401);
+      }
+    });
+
+    test('should allow multiple required permissions', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'user@example.com',
+        role: 'ADMIN',
+        permissions: ['read', 'write', 'delete', 'admin']
+      };
+
+      (checkPermissions as jest.Mock).mockReturnValue(true);
+
+      const permissionMiddleware = requirePermission(['write', 'delete']);
+      const result = await permissionMiddleware(mockContext);
+
+      expect(checkPermissions).toHaveBeenCalledWith(mockContext.user, ['write', 'delete']);
+      expect(result).toBeUndefined();
+    });
+
+    test('should block user missing any required permission', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'user@example.com',
+        role: 'CLIENT',
+        permissions: ['read', 'write']
+      };
+
+      (checkPermissions as jest.Mock).mockReturnValue(false);
+
+      const permissionMiddleware = requirePermission(['write', 'admin']);
+
+      try {
+        await permissionMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Insufficient permissions');
+        expect(mockContext.set.status).toHaveBeenCalledWith(403);
+      }
+    });
+  });
+
+  describe('Edge cases', () => {
+    test('should handle empty token after Bearer', async () => {
+      mockContext.headers.authorization = 'Bearer ';
+
+      try {
+        await authMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Token missing');
+      }
+    });
+
+    test('should handle case-insensitive Bearer', async () => {
+      const mockUser = {
+        id: 1,
+        email: 'test@example.com',
+        role: 'CLIENT'
+      };
+
+      mockContext.headers.authorization = 'bearer valid-token';
+      (verifyToken as jest.Mock).mockResolvedValue(mockUser);
+      (isTokenRevoked as jest.Mock).mockResolvedValue(false);
+
+      const result = await authMiddleware(mockContext);
+
+      expect(verifyToken).toHaveBeenCalledWith('valid-token');
+      expect(mockContext.user).toEqual(mockUser);
+      expect(result).toBeUndefined();
+    });
+
+    test('should handle token verification timeout', async () => {
+      (verifyToken as jest.Mock).mockImplementation(() => 
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Token verification timeout')), 100)
+        )
+      );
+
+      try {
+        await authMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Token verification timeout');
+      }
+    });
+
+    test('should handle user with null/undefined role', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'user@example.com',
+        role: null
+      };
+
+      const roleMiddleware = requireRole('CLIENT');
+
+      try {
+        await roleMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Insufficient permissions');
+      }
+    });
+
+    test('should handle user with empty permissions array', async () => {
+      mockContext.user = {
+        id: 1,
+        email: 'user@example.com',
+        role: 'CLIENT',
+        permissions: []
+      };
+
+      (checkPermissions as jest.Mock).mockReturnValue(false);
+
+      const permissionMiddleware = requirePermission('read');
+
+      try {
+        await permissionMiddleware(mockContext);
+        fail('Should have thrown an error');
+      } catch (error: any) {
+        expect(error.message).toContain('Insufficient permissions');
+      }
+    });
+  });
+});

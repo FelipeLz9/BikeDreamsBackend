@@ -8,52 +8,93 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  avatar    String? // Imagen opcional
-  role      Role     @default(CLIENT)
-  racesWon  Int? // Solo para clientes
-  photos    String[] // Para almacenar URLs de fotos
-  createdAt DateTime @default(now())
-
-  forumPosts ForumPost[]
+  id         String      @id @default(uuid())
+  name       String
+  email      String      @unique
+  password   String
+  avatar     String?
+  role       Role        @default(CLIENT)
+  racesWon   Int?
+  photos     String[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  lastLogin  DateTime?
+  isActive   Boolean     @default(true)
+  loginAttempts Int      @default(0)
+  lockUntil  DateTime?
+  
+  // Security relations
+  refreshTokens RefreshToken[]
+  userSessions  UserSession[]
+  auditLogs     AuditLog[]
+  
+  // RBAC relations
+  userPermissions UserPermission[]
+  roleAssignments RoleAssignment[]
+  
+  // Existing relations
   donations  Donation[]
+  forumPosts ForumPost[]
 }
 
 model Event {
-  id        String   @id @default(uuid())
-  name      String
-  date      DateTime
-  location  String
-  details   String?
-  createdAt DateTime @default(now())
+  id           String       @id @default(uuid())
+  name         String
+  date         DateTime
+  location     String
+  details      String?
+  createdAt    DateTime     @default(now())
+  city         String?
+  continent    String?
+  country      String?
+  dates_text   String?
+  details_url  String?
+  end_date     DateTime?
+  external_id  String?
+  is_uci_event Boolean?
+  latitude     String?
+  longitude    String?
+  scraper_id   String?     @unique
+  source       EventSource?
+  start_date   DateTime?
+  state        String?
+  title        String?
 }
 
 model ForumPost {
   id        String   @id @default(uuid())
   title     String
   content   String
-  user      User     @relation(fields: [userId], references: [id])
   userId    String
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Donation {
   id        String   @id @default(uuid())
   amount    Float
-  user      User?    @relation(fields: [userId], references: [id]) // Ahora es opcional
-  userId    String?  // Permite `NULL` para donaciones anónimas
-  donorName String?  // Guardamos el nombre del donante si no es usuario registrado
+  userId    String?
   createdAt DateTime @default(now())
+  donorName String?
+  user      User?    @relation(fields: [userId], references: [id])
 }
 
 model News {
-  id        String   @id @default(uuid())
-  title     String
-  content   String
-  createdAt DateTime @default(now())
+  id           String      @id @default(uuid())
+  title        String
+  content      String
+  createdAt    DateTime    @default(now())
+  author       String?
+  category     String?
+  date         DateTime?
+  excerpt      String?
+  external_id  String?
+  published_at DateTime?
+  scraper_id   String?     @unique
+  source       NewsSource?
+  summary      String?
+  url          String?
+  uuid_id      String?
 }
 
 model Rider {
@@ -66,6 +107,309 @@ model Rider {
 }
 
 enum Role {
+  SUPER_ADMIN     // Acceso completo al sistema
+  ADMIN           // Administrador general
+  MODERATOR       // Moderador de contenido
+  EDITOR          // Editor de contenido
+  EVENT_MANAGER   // Gestor de eventos
+  USER_MANAGER    // Gestor de usuarios
+  VIEWER          // Solo lectura avanzada
+  CLIENT          // Usuario estándar
+  GUEST           // Invitado limitado
+}
+
+enum EventSource {
+  USABMX
+  UCI
+}
+
+enum NewsSource {
+  USABMX
+  UCI
+}
+
+model SyncConfiguration {
+  id                   Int      @id @default(autoincrement())
+  name                 String   @unique
+  description          String?
+  isActive             Boolean  @default(true) @map("is_active")
+  syncFrequency        String   @default("daily") @map("sync_frequency")
+  syncTime             String?  @default("02:00") @map("sync_time")
+  syncEvents           Boolean  @default(true) @map("sync_events")
+  syncNews             Boolean  @default(true) @map("sync_news")
+  syncUsabmx           Boolean  @default(true) @map("sync_usabmx")
+  syncUci              Boolean  @default(true) @map("sync_uci")
+  autoSyncEnabled      Boolean  @default(false) @map("auto_sync_enabled")
+  notificationsEnabled Boolean  @default(true) @map("notifications_enabled")
+  notificationEmail    String?  @map("notification_email")
+  maxRetries           Int      @default(3) @map("max_retries")
+  timeoutMinutes       Int      @default(30) @map("timeout_minutes")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  createdBy            Int?     @map("created_by")
+  
+  // Relations
+  logs       SyncLog[]
+  schedule   SyncSchedule?
+  
+  @@map("sync_configurations")
+}
+
+model SyncLog {
+  id              Int       @id @default(autoincrement())
+  syncType        String    @map("sync_type")
+  triggerType     String    @default("manual") @map("trigger_type")
+  status          String    @default("pending")
+  startedAt       DateTime  @default(now()) @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  durationMs      Int?      @map("duration_ms")
+  eventsSynced    Int?      @default(0) @map("events_synced")
+  newsSynced      Int?      @default(0) @map("news_synced")
+  eventsUsabmx    Int?      @default(0) @map("events_usabmx")
+  eventsUci       Int?      @default(0) @map("events_uci")
+  newsUsabmx      Int?      @default(0) @map("news_usabmx")
+  newsUci         Int?      @default(0) @map("news_uci")
+  totalErrors     Int?      @default(0) @map("total_errors")
+  errorDetails    String[]  @map("error_details")
+  configurationId Int?      @map("configuration_id")
+  triggeredBy     Int?      @map("triggered_by")
+  scraperHealth   Boolean?  @map("scraper_health")
+  metadata        Json?
+  
+  // Relations
+  configuration SyncConfiguration? @relation(fields: [configurationId], references: [id])
+  
+  @@index([status])
+  @@index([startedAt])
+  @@index([syncType])
+  @@map("sync_logs")
+}
+
+model SyncSchedule {
+  id              Int       @id @default(autoincrement())
+  configurationId Int       @unique @map("configuration_id")
+  cronExpression  String    @map("cron_expression")
+  nextRun         DateTime? @map("next_run")
+  lastRun         DateTime? @map("last_run")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  configuration SyncConfiguration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  
+  @@map("sync_schedules")
+}
+
+// Security Models
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  isRevoked Boolean  @default(false)
+  deviceId  String?
+  ipAddress String?
+  userAgent String?
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  sessionToken String   @unique
+  deviceId     String?
+  ipAddress    String
+  userAgent    String?
+  location     String?
+  isActive     Boolean  @default(true)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActivity DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([sessionToken])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model AuditLog {
+  id          String     @id @default(uuid())
+  userId      String?
+  action      String
+  resource    String?
+  resourceId  String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean    @default(true)
+  errorMessage String?
+  timestamp   DateTime   @default(now())
+  severity    LogSeverity @default(INFO)
+  
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+  @@index([severity])
+  @@map("audit_logs")
+}
+
+model SecurityEvent {
+  id          String          @id @default(uuid())
+  eventType   SecurityEventType
+  severity    LogSeverity     @default(MEDIUM)
+  description String
+  ipAddress   String?
+  userAgent   String?
+  userId      String?
+  metadata    Json?
+  resolved    Boolean         @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime        @default(now())
+  
+  @@index([eventType])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
+// Enums for Security
+enum LogSeverity {
+  LOW
+  INFO
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SecurityEventType {
+  LOGIN_ATTEMPT
+  LOGIN_FAILURE
+  ACCOUNT_LOCKED
+  SUSPICIOUS_ACTIVITY
+  BRUTE_FORCE_ATTEMPT
+  TOKEN_MISUSE
+  UNAUTHORIZED_ACCESS
+  DATA_BREACH_ATTEMPT
+  RATE_LIMIT_EXCEEDED
+}
+
+// RBAC Models
+model Permission {
+  id          String @id @default(uuid())
+  name        String @unique
+  resource    String // e.g., "events", "users", "admin"
+  action      PermissionAction // e.g., "read", "write", "delete"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+  
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  role         Role
+  permissionId String
+  granted      Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  
+  // Relations
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  @@unique([role, permissionId])
+  @@map("role_permissions")
+}
+
+model UserPermission {
+  id           String     @id @default(uuid())
+  userId       String
+  permissionId String
+  granted      Boolean    @default(true)
+  expiresAt    DateTime?
+  grantedBy    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_permissions")
+}
+
+model RoleAssignment {
+  id        String    @id @default(uuid())
+  userId    String
+  role      Role
+  assignedBy String?
+  expiresAt DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, role])
+  @@index([userId])
+  @@index([role])
+  @@index([expiresAt])
+  @@map("role_assignments")
+}
+
+model ResourcePolicy {
+  id          String           @id @default(uuid())
+  resource    String
+  resourceId  String?
+  policy      Json             // Políticas complejas en JSON
+  conditions  Json?            // Condiciones adicionales
+  priority    Int              @default(0)
+  isActive    Boolean          @default(true)
+  effect      PolicyEffect     @default(ALLOW)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  @@index([resource])
+  @@index([priority])
+  @@map("resource_policies")
+}
+
+// Enums for RBAC
+enum PermissionAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  EXECUTE
+  MODERATE
+  MANAGE
   ADMIN
-  CLIENT
+}
+
+enum PolicyEffect {
+  ALLOW
+  DENY
 }

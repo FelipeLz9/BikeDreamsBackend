@@ -1,0 +1,406 @@
+import { describe, expect, test, beforeAll, afterAll } from '@jest/globals';
+import { Elysia } from 'elysia';
+import { fullValidationPlugin } from '../../plugins/validationPlugin.js';
+import { SanitizerService } from '../../services/sanitizerService.js';
+import { SecurityLogger } from '../../services/securityLogger.js';
+
+describe('Validation Integration Tests', () => {
+  let app: Elysia;
+
+  beforeAll(async () => {
+    // Setup test application with validation
+    app = new Elysia()
+      .use(fullValidationPlugin({ 
+        contentType: 'user', 
+        logAttempts: true, 
+        detectMalicious: true 
+      }))
+      .post('/test-validation', ({ body, validateBody }) => {
+        // Simple schema for testing
+        const schema = {
+          parse: (data: any) => {
+            if (!data.name || typeof data.name !== 'string') {
+              throw new Error('Name is required and must be string');
+            }
+            if (data.email && !/\S+@\S+\.\S+/.test(data.email)) {
+              throw new Error('Invalid email format');
+            }
+            return data;
+          }
+        };
+        
+        const validatedBody = validateBody(schema, body);
+        return { success: true, data: validatedBody };
+      })
+      .get('/test-query', ({ query, validateQuery }) => {
+        const schema = {
+          parse: (data: any) => {
+            if (data.page && isNaN(Number(data.page))) {
+              throw new Error('Page must be a number');
+            }
+            return data;
+          }
+        };
+        
+        const validatedQuery = validateQuery(schema, query);
+        return { success: true, query: validatedQuery };
+      });
+  });
+
+  describe('Body Validation and Sanitization', () => {
+    test('should sanitize and validate clean data', async () => {
+      const response = await app.handle(new Request('http://localhost/test-validation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: '  John Doe  ',
+          email: '  TEST@EXAMPLE.COM  ',
+          bio: 'Clean bio content'
+        })
+      }));
+
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      expect(result.success).toBe(true);
+      expect(result.data.name).toBe('John Doe'); // Trimmed
+      expect(result.data.email).toBe('test@example.com'); // Normalized
+    });
+
+    test('should block XSS attacks', async () => {
+      const xssPayloads = [
+        '<script>alert("xss")</script>',
+        '<img src=x onerror=alert("xss")>',
+        'javascript:alert("xss")',
+        '<svg onload=alert("xss")>',
+        '<iframe src="javascript:alert(\'xss\')"></iframe>'
+      ];
+
+      for (const payload of xssPayloads) {
+        const response = await app.handle(new Request('http://localhost/test-validation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Test User',
+            bio: payload
+          })
+        }));
+
+        expect(response.status).toBe(400);
+        const result = await response.json();
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('malicioso');
+      }
+    });
+
+    test('should block SQL injection attempts', async () => {
+      const sqlPayloads = [
+        "'; DROP TABLE users; --",
+        "1' OR '1'='1",
+        "UNION SELECT * FROM passwords",
+        "1; DELETE FROM users WHERE 1=1",
+        "' OR 1=1 /*"
+      ];
+
+      for (const payload of sqlPayloads) {
+        const response = await app.handle(new Request('http://localhost/test-validation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: payload,
+            email: 'test@example.com'
+          })
+        }));
+
+        expect(response.status).toBe(400);
+        const result = await response.json();
+        expect(result.success).toBe(false);
+      }
+    });
+
+    test('should handle path traversal attempts', async () => {
+      const pathTraversalPayloads = [
+        '../../../etc/passwd',
+        '..\\..\\..\\windows\\system32\\config\\sam',
+        '%2e%2e%2f%2e%2e%2f%2e%2e%2f',
+        '....//....//....//etc//passwd'
+      ];
+
+      for (const payload of pathTraversalPayloads) {
+        const response = await app.handle(new Request('http://localhost/test-validation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Test User',
+            bio: payload
+          })
+        }));
+
+        expect(response.status).toBe(400);
+      }
+    });
+
+    test('should sanitize various data types correctly', async () => {
+      const testData = {
+        name: '<script>alert("test")</script>John Doe',
+        email: '  MIXED.case@EXAMPLE.COM  ',
+        phone: '+1-abc-555-def-1234-ghi',
+        website: 'https://example.com',
+        bio: '<p>Safe content</p><script>alert("danger")</script>'
+      };
+
+      const response = await app.handle(new Request('http://localhost/test-validation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testData)
+      }));
+
+      if (response.status === 200) {
+        const result = await response.json();
+        expect(result.data.name).not.toContain('<script>');
+        expect(result.data.email).toBe('mixed.case@example.com');
+        expect(result.data.bio).not.toContain('<script>');
+        expect(result.data.bio).toContain('<p>Safe content</p>');
+      }
+    });
+  });
+
+  describe('Query Parameter Validation', () => {
+    test('should sanitize query parameters', async () => {
+      const response = await app.handle(new Request('http://localhost/test-query?page=1&search=<script>alert("xss")</script>test'));
+
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      expect(result.query.search).not.toContain('<script>');
+      expect(result.query.search).toBe('test');
+    });
+
+    test('should validate pagination parameters', async () => {
+      const testCases = [
+        { query: 'page=abc', shouldFail: true },
+        { query: 'page=1', shouldFail: false },
+        { query: 'page=-1', shouldFail: false }, // Let business logic handle
+        { query: 'page=99999999', shouldFail: false }
+      ];
+
+      for (const testCase of testCases) {
+        const response = await app.handle(new Request(`http://localhost/test-query?${testCase.query}`));
+        
+        if (testCase.shouldFail) {
+          expect(response.status).toBe(400);
+        } else {
+          expect(response.status).toBe(200);
+        }
+      }
+    });
+  });
+
+  describe('File Upload Validation', () => {
+    test('should validate file types', () => {
+      const validFile = {
+        name: 'test.jpg',
+        size: 1024 * 1024, // 1MB
+        type: 'image/jpeg'
+      };
+
+      const invalidFile = {
+        name: 'malicious.exe',
+        size: 1024,
+        type: 'application/x-executable'
+      };
+
+      const validResult = SanitizerService.sanitizeFileUpload(validFile);
+      const invalidResult = SanitizerService.sanitizeFileUpload(invalidFile);
+
+      expect(validResult.valid).toBe(true);
+      expect(invalidResult.valid).toBe(false);
+    });
+
+    test('should sanitize file names', () => {
+      const maliciousFile = {
+        name: '../../../malicious<script>.jpg',
+        size: 1024,
+        type: 'image/jpeg'
+      };
+
+      const result = SanitizerService.sanitizeFileUpload(maliciousFile);
+      
+      if (result.valid) {
+        expect(result.sanitized?.name).not.toContain('../');
+        expect(result.sanitized?.name).not.toContain('<script>');
+      }
+    });
+
+    test('should reject oversized files', () => {
+      const oversizedFile = {
+        name: 'large.jpg',
+        size: 15 * 1024 * 1024, // 15MB
+        type: 'image/jpeg'
+      };
+
+      const result = SanitizerService.sanitizeFileUpload(oversizedFile);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('grande');
+    });
+  });
+
+  describe('Content Hash Generation', () => {
+    test('should generate consistent hashes', () => {
+      const content1 = 'This is test content';
+      const content2 = 'This is test content';
+      const content3 = 'This is different content';
+
+      const hash1 = SanitizerService.generateContentHash(content1);
+      const hash2 = SanitizerService.generateContentHash(content2);
+      const hash3 = SanitizerService.generateContentHash(content3);
+
+      expect(hash1).toBe(hash2);
+      expect(hash1).not.toBe(hash3);
+      expect(hash1).toBeTruthy();
+    });
+
+    test('should normalize content before hashing', () => {
+      const content1 = '  This    is   test   content!  ';
+      const content2 = 'This is test content';
+      
+      const hash1 = SanitizerService.generateContentHash(content1);
+      const hash2 = SanitizerService.generateContentHash(content2);
+      
+      expect(hash1).toBe(hash2);
+    });
+  });
+
+  describe('Malicious Content Detection', () => {
+    test('should detect various attack patterns', () => {
+      const maliciousContents = [
+        '<script>alert("xss")</script>',
+        '<img src=x onerror=alert("xss")>',
+        'SELECT * FROM users WHERE 1=1',
+        '../../../etc/passwd',
+        '<iframe src="malicious.html"></iframe>',
+        'javascript:alert("danger")',
+        '<object data="malicious.swf"></object>'
+      ];
+
+      for (const content of maliciousContents) {
+        const result = SanitizerService.detectMaliciousContent(content);
+        expect(result.isSuspicious).toBe(true);
+        expect(result.reasons.length).toBeGreaterThan(0);
+        expect(['medium', 'high']).toContain(result.riskLevel);
+      }
+    });
+
+    test('should not flag safe content', () => {
+      const safeContents = [
+        'This is a normal message.',
+        'Hello world! How are you today?',
+        '<p>This is safe HTML content.</p>',
+        'User123@example.com',
+        'https://example.com/safe-path'
+      ];
+
+      for (const content of safeContents) {
+        const result = SanitizerService.detectMaliciousContent(content);
+        expect(result.isSuspicious).toBe(false);
+        expect(result.riskLevel).toBe('low');
+      }
+    });
+  });
+
+  describe('Edge Cases and Performance', () => {
+    test('should handle very large payloads efficiently', async () => {
+      const largeString = 'a'.repeat(50000);
+      const startTime = Date.now();
+
+      const response = await app.handle(new Request('http://localhost/test-validation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Test User',
+          bio: largeString
+        })
+      }));
+
+      const endTime = Date.now();
+      const processingTime = endTime - startTime;
+
+      // Should process within reasonable time (5 seconds max)
+      expect(processingTime).toBeLessThan(5000);
+      expect(response.status).toBeLessThan(500); // Should not crash
+    });
+
+    test('should handle null and undefined values gracefully', async () => {
+      const testCases = [
+        null,
+        undefined,
+        { name: null },
+        { name: undefined },
+        { name: '', email: null }
+      ];
+
+      for (const testCase of testCases) {
+        const response = await app.handle(new Request('http://localhost/test-validation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(testCase)
+        }));
+
+        // Should handle gracefully without crashing
+        expect(response.status).toBeLessThan(500);
+      }
+    });
+
+    test('should handle malformed JSON', async () => {
+      const malformedJson = '{"name": "test", "incomplete": ';
+      
+      const response = await app.handle(new Request('http://localhost/test-validation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: malformedJson
+      }));
+
+      expect(response.status).toBe(400);
+    });
+
+    test('should handle circular references in objects', () => {
+      const circularObj: any = { name: 'test' };
+      circularObj.self = circularObj;
+
+      // Should not throw error
+      expect(() => {
+        SanitizerService.sanitizeObject(circularObj);
+      }).not.toThrow();
+    });
+  });
+
+  describe('Security Logging Integration', () => {
+    test('should log attack attempts', async () => {
+      // Mock SecurityLogger to capture logs
+      const originalLogAttackAttempt = SecurityLogger.logAttackAttempt;
+      let loggedAttack: any = null;
+
+      SecurityLogger.logAttackAttempt = (attack: any) => {
+        loggedAttack = attack;
+        return originalLogAttackAttempt.call(SecurityLogger, attack);
+      };
+
+      try {
+        const response = await app.handle(new Request('http://localhost/test-validation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Test User',
+            bio: '<script>alert("xss")</script>'
+          })
+        }));
+
+        expect(response.status).toBe(400);
+        expect(loggedAttack).toBeTruthy();
+        expect(loggedAttack.attackType).toBe('xss');
+        expect(loggedAttack.blocked).toBe(true);
+      } finally {
+        // Restore original function
+        SecurityLogger.logAttackAttempt = originalLogAttackAttempt;
+      }
+    });
+  });
+});

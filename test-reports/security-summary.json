@@ -1,0 +1,32 @@
+{
+  "security_test_summary": {
+    "timestamp": "2025-10-09T16:29:14Z",
+    "environment": "test",
+    "test_suite_version": "1.0.0",
+    "results": {
+      "unit_tests": {
+        "status": "UNKNOWN",
+        "report_file": "security-unit-tests.xml"
+      },
+      "integration_tests": {
+        "status": "UNKNOWN",
+        "report_file": "security-integration-tests.xml"
+      },
+      "penetration_tests": {
+        "status": "UNKNOWN",
+        "report_file": "security-penetration-tests.xml"
+      },
+      "load_tests": {
+        "status": "UNKNOWN",
+        "report_file": "security-load-tests.xml"
+      },
+      "dependency_scan": {
+        "report_file": "npm-audit.json"
+      },
+      "configuration_check": {
+        "report_file": "config-security.json"
+      }
+    },
+    "overall_status": "FAIL"
+  }
+}

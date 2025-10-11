@@ -1,32 +1,35 @@
 import { Elysia } from "elysia";
-
-const SCRAPER_API_URL = "http://localhost:4000";
-
-async function fetchEvents(endpoint: string) {
-    const res = await fetch(`${SCRAPER_API_URL}${endpoint}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : data?.events || [];
-}
+import { getEvents, getUpcomingEvents, getPastEvents } from "../controllers/eventController.js";
 
 export const eventRoutes = new Elysia()
     .get("/events", async ({ query }) => {
-        const { q } = query; // <-- busca en query string
-        let events = await fetchEvents("/events");
-
-        if (q) {
+        const { q } = query; // search query parameter
+        
+        // Get all events from unified controller
+        const result = await getEvents();
+        let { events } = result;
+        
+        // Apply search filter if provided
+        if (q && typeof q === 'string') {
             const search = q.toLowerCase();
-            events = events.filter((e: any) =>
-                e.name.toLowerCase().includes(search)
+            events = events.filter((event: any) =>
+                event.title?.toLowerCase().includes(search) ||
+                event.location?.toLowerCase().includes(search) ||
+                event.city?.toLowerCase().includes(search) ||
+                event.country?.toLowerCase().includes(search)
             );
         }
-
-        return { total: events.length, events };
+        
+        return {
+            total: events.length,
+            events,
+            sources: result.sources,
+            filtered: !!q
+        };
     })
     .get("/events/upcoming", async () => {
-        const events = await fetchEvents("/events/upcoming");
-        return { total: events.length, events };
+        return await getUpcomingEvents();
     })
     .get("/events/past", async () => {
-        const events = await fetchEvents("/events/past");
-        return { total: events.length, events };
+        return await getPastEvents();
     });

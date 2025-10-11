@@ -1,25 +1,50 @@
 import { Elysia } from "elysia";
-
-const SCRAPER_API_URL = "http://localhost:4000";
-
-async function fetchNews(endpoint: string) {
-    const res = await fetch(`${SCRAPER_API_URL}${endpoint}`);
-    const data = await res.json();
-
-    // 🔹 Si es un array directo lo usamos tal cual
-    // 🔹 Si es un objeto con { news: [...] } usamos el array
-    return Array.isArray(data) ? data : data?.news || [];
-}
+import { getNews, getNewsById } from "../controllers/newsController.js";
 
 export const newsRoutes = new Elysia()
-    // Todas las noticias
-    .get("/news", async () => {
-        const news = await fetchNews("/news");
-        return { total: news.length, news };
+    // Get all news from both USABMX and UCI sources
+    .get("/news", async ({ query }) => {
+        const { q, source } = query; // search query and source filter
+        
+        const result = await getNews();
+        let { news } = result;
+        
+        // Apply source filter if provided
+        if (source && typeof source === 'string') {
+            const sourceFilter = source.toUpperCase();
+            if (['USABMX', 'UCI'].includes(sourceFilter)) {
+                news = news.filter((item: any) => item.source === sourceFilter);
+            }
+        }
+        
+        // Apply search filter if provided
+        if (q && typeof q === 'string') {
+            const search = q.toLowerCase();
+            news = news.filter((item: any) =>
+                item.title?.toLowerCase().includes(search) ||
+                item.excerpt?.toLowerCase().includes(search) ||
+                item.category?.toLowerCase().includes(search)
+            );
+        }
+        
+        return {
+            total: news.length,
+            news,
+            sources: result.sources,
+            filtered: !!(q || source)
+        };
     })
-
-    // Noticias por ID
+    
+    // Get specific news by ID (searches in both sources)
     .get("/news/:id", async ({ params }) => {
-        const news = await fetchNews(`/news/id/${params.id}`);
-        return { total: news.length, news };
+        const news = await getNewsById(params.id);
+        
+        if (!news) {
+            return {
+                error: "News not found",
+                id: params.id
+            };
+        }
+        
+        return news;
     });

@@ -1,0 +1,456 @@
+// Mocks
+jest.mock('zod', () => {
+  const originalZod = jest.requireActual('zod');
+  return {
+    ...originalZod,
+    z: {
+      ...originalZod.z,
+      object: jest.fn(() => ({
+        parse: jest.fn(),
+        safeParse: jest.fn(),
+        parseAsync: jest.fn(),
+        safeParseAsync: jest.fn(),
+        refine: jest.fn(() => ({ parse: jest.fn() }))
+      })),
+      string: jest.fn(() => ({
+        parse: jest.fn(),
+        safeParse: jest.fn(),
+        email: jest.fn(() => ({ parse: jest.fn() })),
+        min: jest.fn(() => ({ parse: jest.fn() })),
+        max: jest.fn(() => ({ parse: jest.fn() })),
+        regex: jest.fn(() => ({ parse: jest.fn() }))
+      })),
+      number: jest.fn(() => ({
+        parse: jest.fn(),
+        safeParse: jest.fn(),
+        min: jest.fn(() => ({ parse: jest.fn() })),
+        max: jest.fn(() => ({ parse: jest.fn() })),
+        int: jest.fn(() => ({ parse: jest.fn() }))
+      })),
+      boolean: jest.fn(() => ({
+        parse: jest.fn(),
+        safeParse: jest.fn()
+      })),
+      array: jest.fn(() => ({
+        parse: jest.fn(),
+        safeParse: jest.fn()
+      }))
+    }
+  };
+});
+
+import { validateBody, validateQuery, validateParams } from '../../middleware/validation';
+import { z } from 'zod';
+
+describe('✅ Validation Middleware', () => {
+  let mockContext: any;
+  let mockSchema: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockContext = {
+      body: {},
+      query: {},
+      params: {},
+      set: {
+        status: jest.fn(),
+        headers: {}
+      }
+    };
+
+    mockSchema = {
+      parse: jest.fn(),
+      safeParse: jest.fn(),
+      parseAsync: jest.fn(),
+      safeParseAsync: jest.fn()
+    };
+  });
+
+  describe('validateBody', () => {
+    test('should validate valid body data', async () => {
+      const validData = { email: 'test@example.com', password: 'password123' };
+      mockContext.body = validData;
+      
+      mockSchema.parse.mockReturnValue(validData);
+
+      const middleware = validateBody(mockSchema);
+      const result = await middleware(mockContext);
+
+      expect(mockSchema.parse).toHaveBeenCalledWith(validData);
+      expect(result).toBeUndefined(); // Should pass through
+    });
+
+    test('should reject invalid body data', async () => {
+      const invalidData = { email: 'invalid-email' };
+      mockContext.body = invalidData;
+
+      const validationError = new Error('Validation failed');
+      validationError.name = 'ZodError';
+      (validationError as any).issues = [
+        { path: ['email'], message: 'Invalid email format' }
+      ];
+
+      mockSchema.parse.mockImplementation(() => {
+        throw validationError;
+      });
+
+      const middleware = validateBody(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown validation error');
+      } catch (error: any) {
+        expect(error.message).toContain('Validation failed');
+        expect(mockContext.set.status).toHaveBeenCalledWith(400);
+      }
+    });
+
+    test('should handle empty body', async () => {
+      mockContext.body = undefined;
+
+      mockSchema.parse.mockImplementation(() => {
+        throw new Error('Required field missing');
+      });
+
+      const middleware = validateBody(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown validation error');
+      } catch (error: any) {
+        expect(mockSchema.parse).toHaveBeenCalledWith(undefined);
+      }
+    });
+
+    test('should handle complex nested validation', async () => {
+      const complexData = {
+        user: {
+          personal: {
+            firstName: 'John',
+            lastName: 'Doe',
+            email: 'john@example.com'
+          },
+          preferences: {
+            notifications: true,
+            theme: 'dark'
+          }
+        },
+        metadata: {
+          source: 'api',
+          timestamp: Date.now()
+        }
+      };
+
+      mockContext.body = complexData;
+      mockSchema.parse.mockReturnValue(complexData);
+
+      const middleware = validateBody(mockSchema);
+      const result = await middleware(mockContext);
+
+      expect(mockSchema.parse).toHaveBeenCalledWith(complexData);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('validateQuery', () => {
+    test('should validate query parameters', async () => {
+      const queryParams = { page: '1', limit: '10', search: 'test' };
+      mockContext.query = queryParams;
+
+      mockSchema.parse.mockReturnValue({
+        page: 1,
+        limit: 10,
+        search: 'test'
+      });
+
+      const middleware = validateQuery(mockSchema);
+      const result = await middleware(mockContext);
+
+      expect(mockSchema.parse).toHaveBeenCalledWith(queryParams);
+      expect(result).toBeUndefined();
+    });
+
+    test('should reject invalid query parameters', async () => {
+      const invalidQuery = { page: 'invalid', limit: '-5' };
+      mockContext.query = invalidQuery;
+
+      const validationError = new Error('Invalid query parameters');
+      validationError.name = 'ZodError';
+      (validationError as any).issues = [
+        { path: ['page'], message: 'Must be a valid number' },
+        { path: ['limit'], message: 'Must be positive' }
+      ];
+
+      mockSchema.parse.mockImplementation(() => {
+        throw validationError;
+      });
+
+      const middleware = validateQuery(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown validation error');
+      } catch (error: any) {
+        expect(error.message).toContain('Invalid query parameters');
+        expect(mockContext.set.status).toHaveBeenCalledWith(400);
+      }
+    });
+
+    test('should handle optional query parameters', async () => {
+      const queryParams = { search: 'bikes' };
+      mockContext.query = queryParams;
+
+      mockSchema.parse.mockReturnValue({
+        search: 'bikes',
+        page: 1, // default value
+        limit: 20 // default value
+      });
+
+      const middleware = validateQuery(mockSchema);
+      const result = await middleware(mockContext);
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('validateParams', () => {
+    test('should validate URL parameters', async () => {
+      const params = { id: '123', slug: 'test-product' };
+      mockContext.params = params;
+
+      mockSchema.parse.mockReturnValue({
+        id: 123,
+        slug: 'test-product'
+      });
+
+      const middleware = validateParams(mockSchema);
+      const result = await middleware(mockContext);
+
+      expect(mockSchema.parse).toHaveBeenCalledWith(params);
+      expect(result).toBeUndefined();
+    });
+
+    test('should reject invalid URL parameters', async () => {
+      const invalidParams = { id: 'not-a-number' };
+      mockContext.params = invalidParams;
+
+      const validationError = new Error('Invalid parameters');
+      validationError.name = 'ZodError';
+      (validationError as any).issues = [
+        { path: ['id'], message: 'Must be a valid number' }
+      ];
+
+      mockSchema.parse.mockImplementation(() => {
+        throw validationError;
+      });
+
+      const middleware = validateParams(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown validation error');
+      } catch (error: any) {
+        expect(error.message).toContain('Invalid parameters');
+        expect(mockContext.set.status).toHaveBeenCalledWith(400);
+      }
+    });
+
+    test('should handle UUID validation', async () => {
+      const params = { userId: '550e8400-e29b-41d4-a716-446655440000' };
+      mockContext.params = params;
+
+      mockSchema.parse.mockReturnValue(params);
+
+      const middleware = validateParams(mockSchema);
+      const result = await middleware(mockContext);
+
+      expect(mockSchema.parse).toHaveBeenCalledWith(params);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('Error handling', () => {
+    test('should format Zod validation errors properly', async () => {
+      const validationError = new Error('Validation error');
+      validationError.name = 'ZodError';
+      (validationError as any).issues = [
+        { path: ['email'], message: 'Invalid email format' },
+        { path: ['password'], message: 'Password too short' },
+        { path: ['user', 'age'], message: 'Must be at least 18' }
+      ];
+
+      mockSchema.parse.mockImplementation(() => {
+        throw validationError;
+      });
+
+      const middleware = validateBody(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown validation error');
+      } catch (error: any) {
+        expect(error.message).toContain('Validation failed');
+        // Should contain formatted error details
+      }
+    });
+
+    test('should handle non-Zod errors', async () => {
+      const genericError = new Error('Generic parsing error');
+      mockSchema.parse.mockImplementation(() => {
+        throw genericError;
+      });
+
+      const middleware = validateBody(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown error');
+      } catch (error: any) {
+        expect(error.message).toBe('Generic parsing error');
+        expect(mockContext.set.status).toHaveBeenCalledWith(500);
+      }
+    });
+
+    test('should handle malformed JSON in body', async () => {
+      // Simulate malformed JSON that couldn't be parsed
+      mockContext.body = '{"invalid": json}'; // This would be a string if JSON parsing failed
+
+      const middleware = validateBody(mockSchema);
+      
+      // This should handle the case where body is a string instead of object
+      mockSchema.parse.mockImplementation((data) => {
+        if (typeof data === 'string') {
+          throw new Error('Expected object, received string');
+        }
+        return data;
+      });
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown error');
+      } catch (error: any) {
+        expect(error.message).toContain('Expected object, received string');
+      }
+    });
+  });
+
+  describe('Schema transformation', () => {
+    test('should apply schema transformations', async () => {
+      const inputData = { 
+        email: '  TEST@EXAMPLE.COM  ',
+        age: '25',
+        active: 'true'
+      };
+      
+      const transformedData = {
+        email: 'test@example.com', // trimmed and lowercased
+        age: 25, // converted to number
+        active: true // converted to boolean
+      };
+
+      mockContext.body = inputData;
+      mockSchema.parse.mockReturnValue(transformedData);
+
+      const middleware = validateBody(mockSchema);
+      const result = await middleware(mockContext);
+
+      expect(mockSchema.parse).toHaveBeenCalledWith(inputData);
+      expect(result).toBeUndefined();
+    });
+
+    test('should handle custom validation rules', async () => {
+      const customData = { 
+        password: 'weakpass',
+        confirmPassword: 'weakpass'
+      };
+
+      mockContext.body = customData;
+
+      // Mock custom validation that checks password strength
+      mockSchema.parse.mockImplementation((data) => {
+        if (data.password.length < 8) {
+          const error = new Error('Password validation failed');
+          error.name = 'ZodError';
+          (error as any).issues = [
+            { path: ['password'], message: 'Password must be at least 8 characters' }
+          ];
+          throw error;
+        }
+        return data;
+      });
+
+      const middleware = validateBody(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown validation error');
+      } catch (error: any) {
+        expect(error.message).toContain('Password validation failed');
+      }
+    });
+  });
+
+  describe('Edge cases', () => {
+    test('should handle null values', async () => {
+      mockContext.body = null;
+
+      mockSchema.parse.mockImplementation((data) => {
+        if (data === null) {
+          throw new Error('Body cannot be null');
+        }
+        return data;
+      });
+
+      const middleware = validateBody(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown error');
+      } catch (error: any) {
+        expect(error.message).toContain('Body cannot be null');
+      }
+    });
+
+    test('should handle very large objects', async () => {
+      const largeObject = {};
+      // Create an object with 1000 properties
+      for (let i = 0; i < 1000; i++) {
+        (largeObject as any)[`field_${i}`] = `value_${i}`;
+      }
+
+      mockContext.body = largeObject;
+      mockSchema.parse.mockReturnValue(largeObject);
+
+      const middleware = validateBody(mockSchema);
+      const result = await middleware(mockContext);
+
+      expect(result).toBeUndefined();
+    });
+
+    test('should handle circular references in error objects', async () => {
+      const circularError = new Error('Circular reference error');
+      circularError.name = 'ZodError';
+      (circularError as any).issues = [];
+      
+      // Create circular reference
+      const issue = { path: ['test'], message: 'Test error' };
+      (issue as any).parent = issue;
+      (circularError as any).issues.push(issue);
+
+      mockSchema.parse.mockImplementation(() => {
+        throw circularError;
+      });
+
+      const middleware = validateBody(mockSchema);
+
+      try {
+        await middleware(mockContext);
+        fail('Should have thrown error');
+      } catch (error: any) {
+        // Should handle circular reference gracefully
+        expect(error).toBeDefined();
+      }
+    });
+  });
+});

