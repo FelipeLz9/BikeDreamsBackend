@@ -1,8 +1,8 @@
 import { Elysia } from 'elysia';
-import { createDonation, getDonations } from '../controllers/donationController.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { financialSecurityMiddleware } from '../middleware/strictSecurity.js';
-import { fullValidationPlugin } from '../plugins/validationPlugin.js';
+import { createDonation, getDonations } from '../controllers/donationController';
+import { authMiddleware } from '../middleware/auth';
+import { financialSecurityMiddleware } from '../middleware/strictSecurity';
+import { fullValidationPlugin } from '../plugins/validationPlugin';
 
 export const donationRoutes = new Elysia()
     .use(authMiddleware)

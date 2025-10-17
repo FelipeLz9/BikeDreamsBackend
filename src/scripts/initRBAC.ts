@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
-import { prisma } from '../prisma/client.js';
-import { RBACService } from '../services/rbacService.js';
+import { prisma } from '../prisma/client';
+import { RBACService } from '../services/rbacService';
 import { Role, PermissionAction } from '@prisma/client';
 import bcrypt from 'bcrypt';
 

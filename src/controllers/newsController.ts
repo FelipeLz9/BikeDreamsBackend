@@ -1,4 +1,4 @@
-import { normalizeNews } from "../utils/normalizers.js";
+import { normalizeNews } from "../utils/normalizers";
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

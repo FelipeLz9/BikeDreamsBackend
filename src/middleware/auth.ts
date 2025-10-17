@@ -1,19 +1,19 @@
 import { Elysia } from 'elysia';
-import { AuthService } from '../services/authService.js';
-import { prisma } from '../prisma/client.js';
+import { AuthService } from '../services/authService';
+import { prisma } from '../prisma/client';
 import { SecurityEventType, LogSeverity } from '@prisma/client';
 
 // Middleware base de autenticación
 export const authMiddleware = new Elysia()
-    .derive(async ({ headers, request }) => {
+    .derive(async ({ request }) => {
         // Extraer información del cliente
-        const forwarded = headers['x-forwarded-for'] as string;
+        const forwarded = request.headers.get('x-forwarded-for') || undefined;
         const clientIp = forwarded ? forwarded.split(',')[0].trim() : 
-                        headers['x-real-ip'] as string || 
+                        request.headers.get('x-real-ip') || 
                         'unknown';
-        const userAgent = headers['user-agent'] || 'unknown';
+        const userAgent = request.headers.get('user-agent') || 'unknown';
 
-        const authHeader = headers.authorization;
+        const authHeader = request.headers.get('authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return { 
                 user: null, 
@@ -112,15 +112,13 @@ export const authMiddleware = new Elysia()
 // Middleware que requiere autenticación
 export const requireAuth = new Elysia()
     .use(authMiddleware)
-    .onBeforeHandle(({ user, isAuthenticated, clientIp, userAgent, tokenError }) => {
+    .onBeforeHandle(({ user, isAuthenticated, clientIp, userAgent, tokenError, set }: any) => {
         if (!isAuthenticated || !user) {
-            return new Response(JSON.stringify({
+            set.status = 401;
+            return {
                 error: 'Unauthorized',
                 message: tokenError || 'Token de acceso requerido'
-            }), {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' }
-            });
+            };
         }
     });
 
@@ -128,15 +126,13 @@ export const requireAuth = new Elysia()
 export const requireRole = (roles: string[]) => {
     return new Elysia()
         .use(authMiddleware)
-        .onBeforeHandle(async ({ user, isAuthenticated, clientIp, userAgent }) => {
+        .onBeforeHandle(async ({ user, isAuthenticated, clientIp, userAgent, set }: any) => {
             if (!isAuthenticated || !user) {
-                return new Response(JSON.stringify({
+                set.status = 401;
+                return {
                     error: 'Unauthorized',
                     message: 'Token de acceso requerido'
-                }), {
-                    status: 401,
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                };
             }
 
             if (!roles.includes(user.role)) {
@@ -154,13 +150,11 @@ export const requireRole = (roles: string[]) => {
                     }
                 });
 
-                return new Response(JSON.stringify({
+                set.status = 403;
+                return {
                     error: 'Forbidden',
                     message: 'Permisos insuficientes para acceder a este recurso'
-                }), {
-                    status: 403,
-                    headers: { 'Content-Type': 'application/json' }
-                });
+                };
             }
         });
 };

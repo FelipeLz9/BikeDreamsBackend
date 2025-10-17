@@ -3,7 +3,7 @@ import {
   getOptimizedEvents, 
   getEventStats, 
   searchEventsAutocomplete 
-} from '../controllers/optimizedEventController.js';
+} from '../controllers/optimizedEventController';
 
 export const optimizedEventRoutes = new Elysia({ prefix: '/api/v2/events' })
 

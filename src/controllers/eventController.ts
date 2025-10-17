@@ -1,4 +1,4 @@
-import { normalizeEvent } from "../utils/normalizers.js";
+import { normalizeEvent } from "../utils/normalizers";
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

@@ -1,5 +1,5 @@
-import { scraperIntegrationService } from '../services/scraperIntegration.js';
-import { syncManagerService } from '../services/syncManager.js';
+import { scraperIntegrationService } from '../services/scraperIntegration';
+import { syncManagerService } from '../services/syncManager';
 
 /**
  * Verifica el estado de salud del scraper

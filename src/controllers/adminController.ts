@@ -1,4 +1,4 @@
-import { prisma } from '../prisma/client.js';
+import { prisma } from '../prisma/client';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 
@@ -36,7 +36,8 @@ const verifyAdminAuth = async (headers: any) => {
 };
 
 // GET /admin/stats - Estadísticas del sistema
-export const getAdminStats = async ({ headers }: { headers: any }) => {
+export const getAdminStats = async (context: any) => {
+    const { headers } = context;
     const { error } = await verifyAdminAuth(headers);
     if (error) return { error };
 
@@ -62,7 +63,8 @@ export const getAdminStats = async ({ headers }: { headers: any }) => {
 };
 
 // GET /admin/users - Lista de usuarios
-export const getAdminUsers = async ({ headers }: { headers: any }) => {
+export const getAdminUsers = async (context: any) => {
+    const { headers } = context;
     const { error } = await verifyAdminAuth(headers);
     if (error) return { error };
 
@@ -90,43 +92,52 @@ export const getAdminUsers = async ({ headers }: { headers: any }) => {
 };
 
 // POST /admin/users - Crear usuario
-export const createAdminUser = async ({ 
-    headers, 
-    body 
-}: { 
-    headers: any, 
-    body: { name: string, email: string, password: string, role: 'ADMIN' | 'CLIENT' } 
-}) => {
+export const createAdminUser = async (context: any) => {
+    const { headers, body } = context;
     const { error } = await verifyAdminAuth(headers);
     if (error) return { error };
 
     try {
-        // Verificar si el email ya existe
-        const existingUser = await prisma.user.findUnique({
-            where: { email: body.email }
-        });
+        // Validar que el body tenga la estructura esperada
+        if (!body || typeof body !== 'object') {
+            return { error: 'Datos de usuario requeridos' };
+        }
 
-        if (existingUser) {
-            return { error: 'Ya existe un usuario con este email' };
+        const { name, email, password, role } = body as { 
+            name?: string; 
+            email?: string; 
+            password?: string; 
+            role?: 'ADMIN' | 'CLIENT' 
+        };
+
+        // Verificar si el email ya existe
+        if (email) {
+            const existingUser = await prisma.user.findUnique({
+                where: { email: email.toLowerCase() }
+            });
+
+            if (existingUser) {
+                return { error: 'Ya existe un usuario con este email' };
+            }
         }
 
         // Validaciones básicas
-        if (!body.name || !body.email || !body.password) {
+        if (!name || !email || !password) {
             return { error: 'Todos los campos son requeridos' };
         }
 
-        if (body.password.length < 6) {
+        if (password.length < 6) {
             return { error: 'La contraseña debe tener al menos 6 caracteres' };
         }
 
         // Crear el usuario
-        const hashedPassword = await bcrypt.hash(body.password, 10);
+        const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = await prisma.user.create({
             data: {
-                name: body.name,
-                email: body.email.toLowerCase(),
+                name,
+                email: email.toLowerCase(),
                 password: hashedPassword,
-                role: body.role || 'CLIENT'
+                role: role || 'CLIENT'
             },
             select: {
                 id: true,
@@ -147,19 +158,28 @@ export const createAdminUser = async ({
 };
 
 // PUT /admin/users/:id - Actualizar usuario
-export const updateAdminUser = async ({ 
-    headers, 
-    params, 
-    body 
-}: { 
-    headers: any, 
-    params: { id: string },
-    body: { name?: string, email?: string, password?: string, role?: 'ADMIN' | 'CLIENT' } 
-}) => {
+export const updateAdminUser = async (context: any) => {
+    const { headers, params, body } = context;
     const { error } = await verifyAdminAuth(headers);
     if (error) return { error };
 
     try {
+        // Validar parámetros y body
+        if (!params?.id) {
+            return { error: 'ID de usuario requerido' };
+        }
+
+        if (!body || typeof body !== 'object') {
+            return { error: 'Datos de actualización requeridos' };
+        }
+
+        const { name, email, password, role } = body as { 
+            name?: string; 
+            email?: string; 
+            password?: string; 
+            role?: 'ADMIN' | 'CLIENT' 
+        };
+
         // Verificar que el usuario existe
         const existingUser = await prisma.user.findUnique({
             where: { id: params.id }
@@ -170,9 +190,9 @@ export const updateAdminUser = async ({
         }
 
         // Si se está cambiando el email, verificar que no exista
-        if (body.email && body.email !== existingUser.email) {
+        if (email && email !== existingUser.email) {
             const emailExists = await prisma.user.findUnique({
-                where: { email: body.email.toLowerCase() }
+                where: { email: email.toLowerCase() }
             });
 
             if (emailExists) {
@@ -183,16 +203,16 @@ export const updateAdminUser = async ({
         // Preparar datos para actualizar
         const updateData: any = {};
         
-        if (body.name) updateData.name = body.name;
-        if (body.email) updateData.email = body.email.toLowerCase();
-        if (body.role) updateData.role = body.role;
+        if (name) updateData.name = name;
+        if (email) updateData.email = email.toLowerCase();
+        if (role) updateData.role = role;
         
         // Solo actualizar contraseña si se proporciona
-        if (body.password && body.password.length > 0) {
-            if (body.password.length < 6) {
+        if (password && password.length > 0) {
+            if (password.length < 6) {
                 return { error: 'La contraseña debe tener al menos 6 caracteres' };
             }
-            updateData.password = await bcrypt.hash(body.password, 10);
+            updateData.password = await bcrypt.hash(password, 10);
         }
 
         const updatedUser = await prisma.user.update({
@@ -217,17 +237,17 @@ export const updateAdminUser = async ({
 };
 
 // DELETE /admin/users/:id - Eliminar usuario
-export const deleteAdminUser = async ({ 
-    headers, 
-    params 
-}: { 
-    headers: any, 
-    params: { id: string } 
-}) => {
+export const deleteAdminUser = async (context: any) => {
+    const { headers, params } = context;
     const { error, user: currentUser } = await verifyAdminAuth(headers);
     if (error) return { error };
 
     try {
+        // Validar parámetros
+        if (!params?.id) {
+            return { error: 'ID de usuario requerido' };
+        }
+
         // Verificar que el usuario existe
         const userToDelete = await prisma.user.findUnique({
             where: { id: params.id }

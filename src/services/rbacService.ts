@@ -1,4 +1,4 @@
-import { prisma } from '../prisma/client.js';
+import { prisma } from '../prisma/client';
 import { Role, PermissionAction, PolicyEffect, LogSeverity, SecurityEventType } from '@prisma/client';
 
 // Interfaces

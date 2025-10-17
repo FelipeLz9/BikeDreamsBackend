@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { ApiResponse, createErrorResponse, createSuccessResponse } from '../utils/apiResponse.js';
+import { ApiResponse, createErrorResponse, createSuccessResponse } from '../utils/apiResponse';
 
 const prisma = new PrismaClient();
 

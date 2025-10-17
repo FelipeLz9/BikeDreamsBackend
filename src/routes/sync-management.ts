@@ -8,8 +8,8 @@ import {
   toggleSyncConfiguration,
   getActiveConfiguration,
   getSyncDashboard
-} from '../controllers/syncManagementController.js';
-import { authMiddleware } from '../middleware/auth.js';
+} from '../controllers/syncManagementController';
+import { authMiddleware } from '../middleware/auth';
 
 export const syncManagementRoutes = new Elysia({ prefix: '/api/sync/management' })
   .use(authMiddleware) // Requiere autenticación de admin
@@ -24,24 +24,24 @@ export const syncManagementRoutes = new Elysia({ prefix: '/api/sync/management' 
   /**
    * POST /api/sync/management/execute - Ejecuta sincronización con logging avanzado
    */
-  .post('/execute', async ({ body, user }) => {
-    const { syncType } = body as { syncType?: string };
-    return await executeAdvancedSync(syncType, user?.userId);
+  .post('/execute', async (context: any) => {
+    const { syncType } = context.body as { syncType?: string };
+    return await executeAdvancedSync(syncType, context.user?.userId);
   })
   
   /**
    * GET /api/sync/management/statistics - Estadísticas de sincronización
    */
-  .get('/statistics', async ({ query }) => {
-    const { days } = query as { days?: string };
+  .get('/statistics', async (context: any) => {
+    const { days } = context.query as { days?: string };
     return await getSyncStatistics(days ? parseInt(days) : undefined);
   })
   
   /**
    * GET /api/sync/management/logs - Logs de sincronización con paginación
    */
-  .get('/logs', async ({ query }) => {
-    const { page, limit, status } = query as { page?: string; limit?: string; status?: string };
+  .get('/logs', async (context: any) => {
+    const { page, limit, status } = context.query as { page?: string; limit?: string; status?: string };
     return await getSyncLogs(
       page ? parseInt(page) : undefined,
       limit ? parseInt(limit) : undefined,
@@ -66,10 +66,10 @@ export const syncManagementRoutes = new Elysia({ prefix: '/api/sync/management' 
   /**
    * POST /api/sync/management/configurations - Crea o actualiza configuración
    */
-  .post('/configurations', async ({ body, user }) => {
+  .post('/configurations', async (context: any) => {
     const configData = {
-      ...(body as any),
-      createdBy: user?.userId
+      ...(context.body as any),
+      createdBy: context.user?.userId
     };
     return await upsertSyncConfiguration(configData);
   })
@@ -77,9 +77,9 @@ export const syncManagementRoutes = new Elysia({ prefix: '/api/sync/management' 
   /**
    * PUT /api/sync/management/configurations/:id/toggle - Activa/desactiva configuración
    */
-  .put('/configurations/:id/toggle', async ({ params, body }) => {
-    const { id } = params as { id: string };
-    const { isActive } = body as { isActive: boolean };
+  .put('/configurations/:id/toggle', async (context: any) => {
+    const { id } = context.params as { id: string };
+    const { isActive } = context.body as { isActive: boolean };
     return await toggleSyncConfiguration(parseInt(id), isActive);
   })
   

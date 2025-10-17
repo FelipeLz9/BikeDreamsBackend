@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia';
-import { SecurityLogger } from '../services/securityLogger.js';
+import { SecurityLogger } from '../services/securityLogger';
 import { securityHeaders, type SecurityHeadersConfig } from './securityHeaders.js';
 
 /**
@@ -128,7 +128,7 @@ export function adminSecurityMiddleware() {
     .use(securityHeaders(adminSecurityConfig))
     .onRequest((context) => {
       const clientIP = getClientIP(context);
-      const userAgent = context.request.headers.get('user-agent');
+      const userAgent = context.request.headers.get('user-agent') || undefined;
       
       // Validar si la IP está en la lista de IPs permitidas para admin
       const allowedAdminIPs = process.env.ADMIN_ALLOWED_IPS?.split(',') || [];

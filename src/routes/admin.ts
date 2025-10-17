@@ -5,9 +5,9 @@ import {
     createAdminUser, 
     updateAdminUser, 
     deleteAdminUser 
-} from '../controllers/adminController.js';
-import { adminSecurityMiddleware } from '../middleware/strictSecurity.js';
-import { fullValidationPlugin } from '../plugins/validationPlugin.js';
+} from '../controllers/adminController';
+import { adminSecurityMiddleware } from '../middleware/strictSecurity';
+import { fullValidationPlugin } from '../plugins/validationPlugin';
 
 export const adminRoutes = new Elysia({ prefix: '/admin' })
     .use(adminSecurityMiddleware()) // Seguridad estricta para admin

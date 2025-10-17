@@ -1,5 +1,5 @@
-import { syncManagerService } from '../services/syncManager.js';
-import { ApiResponse, createErrorResponse, createSuccessResponse } from '../utils/apiResponse.js';
+import { syncManagerService } from '../services/syncManager';
+import { ApiResponse, createErrorResponse, createSuccessResponse } from '../utils/apiResponse';
 
 /**
  * Ejecuta sincronización con logging avanzado

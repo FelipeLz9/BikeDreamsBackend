@@ -1,10 +1,6 @@
-import logger from '../utils/logger.js';
+import logger from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Asegurar que el directorio de logs existe
 const logsDir = path.join(__dirname, '../../logs/security');

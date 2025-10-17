@@ -17,7 +17,7 @@ export const eventRoutes = new Elysia()
                 event.location?.toLowerCase().includes(search) ||
                 event.city?.toLowerCase().includes(search) ||
                 event.country?.toLowerCase().includes(search)
-            );
+            ) as any[];
         }
         
         return {

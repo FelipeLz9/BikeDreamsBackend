@@ -1,14 +1,15 @@
-import { Elysia, Context, ValidationError } from 'elysia';
+import { Elysia, Context } from 'elysia';
 import { ZodSchema, ZodError } from 'zod';
-import { SanitizerService } from '../services/sanitizerService.js';
-import { SecurityLogger } from '../services/securityLogger.js';
-import logger from '../utils/logger.js';
+import { SanitizerService } from '../services/sanitizerService';
+import { SecurityLogger } from '../services/securityLogger';
+import logger from '../utils/logger';
 
 interface ValidationOptions {
   sanitize?: boolean;
   detectMalicious?: boolean;
   logAttempts?: boolean;
   contentType?: 'user' | 'event' | 'news' | 'forum' | 'donation';
+  strictMode?: boolean; // accepted for compatibility; not used here
 }
 
 interface ValidationErrorResponse {
@@ -36,7 +37,7 @@ export function validationPlugin(options: ValidationOptions = {}) {
         const errors: ValidationErrorResponse[] = [];
 
         if (!body) {
-          throw new ValidationError('required', '/body', 'Cuerpo de la petición es requerido');
+          throw new Error('Cuerpo de la petición es requerido');
         }
 
         // Log del intento de validación
@@ -95,11 +96,7 @@ export function validationPlugin(options: ValidationOptions = {}) {
             });
 
             if (maliciousCheck.riskLevel === 'high') {
-              throw new ValidationError(
-                'malicious_content', 
-                '/body', 
-                'Contenido potencialmente malicioso detectado'
-              );
+            throw new Error('Contenido potencialmente malicioso detectado');
             }
           }
         }
@@ -115,9 +112,7 @@ export function validationPlugin(options: ValidationOptions = {}) {
               errors: zodErrors
             });
             
-            throw new ValidationError(
-              'validation_failed',
-              '/body',
+            throw new Error(
               `Errores de validación: ${zodErrors.map(e => e.message).join(', ')}`
             );
           }
@@ -128,7 +123,7 @@ export function validationPlugin(options: ValidationOptions = {}) {
       // Función para validar query parameters
       const validateQuery = <T>(schema: ZodSchema<T>, query: any): T => {
         if (!query) {
-          throw new ValidationError('required', '/query', 'Query parameters son requeridos');
+          throw new Error('Query parameters son requeridos');
         }
 
         let sanitizedQuery = query;
@@ -148,9 +143,7 @@ export function validationPlugin(options: ValidationOptions = {}) {
               errors: zodErrors
             });
             
-            throw new ValidationError(
-              'validation_failed',
-              '/query',
+            throw new Error(
               `Errores de validación en query: ${zodErrors.map(e => e.message).join(', ')}`
             );
           }
@@ -161,7 +154,7 @@ export function validationPlugin(options: ValidationOptions = {}) {
       // Función para validar parámetros de ruta
       const validateParams = <T>(schema: ZodSchema<T>, params: any): T => {
         if (!params) {
-          throw new ValidationError('required', '/params', 'Parámetros de ruta son requeridos');
+          throw new Error('Parámetros de ruta son requeridos');
         }
 
         let sanitizedParams = params;
@@ -181,9 +174,7 @@ export function validationPlugin(options: ValidationOptions = {}) {
               errors: zodErrors
             });
             
-            throw new ValidationError(
-              'validation_failed',
-              '/params',
+            throw new Error(
               `Errores de validación en parámetros: ${zodErrors.map(e => e.message).join(', ')}`
             );
           }
@@ -227,7 +218,7 @@ export function fileValidationPlugin(options: {
     .derive((context) => {
       const validateFile = (file: any) => {
         if (!file && required) {
-          throw new ValidationError('required', '/file', 'Archivo requerido');
+          throw new Error('Archivo requerido');
         }
 
         if (!file) return null;
@@ -240,24 +231,16 @@ export function fileValidationPlugin(options: {
         });
 
         if (!validation.valid) {
-          throw new ValidationError('invalid_file', '/file', validation.error || 'Archivo inválido');
+          throw new Error(validation.error || 'Archivo inválido');
         }
 
         if (file.size > maxSize) {
-          throw new ValidationError(
-            'file_too_large', 
-            '/file', 
-            `Archivo demasiado grande (máximo ${Math.round(maxSize / 1024 / 1024)}MB)`
-          );
+          throw new Error(`Archivo demasiado grande (máximo ${Math.round(maxSize / 1024 / 1024)}MB)`);
         }
 
         const fileType = file.type || file.mimetype;
         if (!allowedTypes.includes(fileType)) {
-          throw new ValidationError(
-            'invalid_file_type', 
-            '/file', 
-            `Tipo de archivo ${fileType} no permitido`
-          );
+          throw new Error(`Tipo de archivo ${fileType} no permitido`);
         }
 
         return validation.sanitized;
@@ -283,17 +266,13 @@ export function paginationPlugin() {
         const maxPage = 10000;
 
         if (page < 1 || page > maxPage) {
-          throw new ValidationError(
-            'invalid_page', 
-            '/query/page', 
+          throw new Error(
             `La página debe estar entre 1 y ${maxPage}`
           );
         }
 
         if (limit < 1 || limit > maxLimit) {
-          throw new ValidationError(
-            'invalid_limit', 
-            '/query/limit', 
+          throw new Error(
             `El límite debe estar entre 1 y ${maxLimit}`
           );
         }
@@ -337,11 +316,7 @@ export function securityPlugin() {
           });
 
           if (check.riskLevel === 'high') {
-            throw new ValidationError(
-              'malicious_content',
-              '/content',
-              'Contenido potencialmente malicioso detectado'
-            );
+            throw new Error('Contenido potencialmente malicioso detectado');
           }
         }
 
@@ -366,8 +341,7 @@ function formatZodError(error: ZodError, source: string): ValidationErrorRespons
   return error.errors.map(err => ({
     field: `${source}.${err.path.join('.')}`,
     message: getSpanishErrorMessage(err.code, err.message),
-    code: err.code,
-    received: err.received
+    code: err.code
   }));
 }
 

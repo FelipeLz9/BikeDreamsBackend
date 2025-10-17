@@ -15,22 +15,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     .use(authSecurityMiddleware()) // Headers de seguridad específicos para auth
     .use(rateLimiterMiddleware)
     .use(fullValidationPlugin({ contentType: 'user', logAttempts: true }))
-    .post('/login', async ({ body, headers, validateBody }) => {
-        const validatedBody = validateBody(loginSchema, body);
-        return login({ body: validatedBody, headers });
-    })
-    .post('/register', async ({ body, headers, validateBody }) => {
-        const validatedBody = validateBody(registerSchema, body);
-        return register({ body: validatedBody, headers });
-    })
-    .post('/refresh', async ({ body, headers, validateBody }) => {
-        const validatedBody = validateBody(refreshTokenSchema, body);
-        return refreshToken({ body: validatedBody, headers });
-    })
+    .post('/login', login)
+    .post('/register', register)
+    .post('/refresh', refreshToken)
     .use(requireAuth)
-    .post('/logout', ({ user, tokenPayload, headers, body }) => logout({ user, tokenPayload, headers, body }))
-    .get('/me', ({ user }) => me({ user }))
-    .post('/change-password', async ({ user, body, headers, validateBody }) => {
-        const validatedBody = validateBody(changePasswordSchema, body);
-        return changePassword({ user, body: validatedBody, headers });
-    });
+    .post('/logout', logout)
+    .get('/me', me)
+    .post('/change-password', changePassword);

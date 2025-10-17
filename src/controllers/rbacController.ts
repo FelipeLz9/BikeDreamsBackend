@@ -1,5 +1,5 @@
-import { RBACService, ROLE_HIERARCHY } from '../services/rbacService.js';
-import { prisma } from '../prisma/client.js';
+import { RBACService, ROLE_HIERARCHY } from '../services/rbacService';
+import { prisma } from '../prisma/client';
 import { Role, PermissionAction } from '@prisma/client';
 
 /**
@@ -131,7 +131,10 @@ export const assignUserRole = async ({
     }
 
     // Verificar que el rol a asignar no sea superior al del usuario actual
-    const currentUserLevel = ROLE_HIERARCHY[user.role]?.level || 0;
+    const safeUserRole = (Object.prototype.hasOwnProperty.call(ROLE_HIERARCHY, user.role)
+      ? user.role
+      : 'GUEST') as Role;
+    const currentUserLevel = ROLE_HIERARCHY[safeUserRole]?.level || 0;
     const targetRoleLevel = ROLE_HIERARCHY[role]?.level || 0;
     
     if (targetRoleLevel >= currentUserLevel) {

@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth.js';
 
 export const userRoutes = new Elysia()
     .get('/users', getUsers)
+    .use(authMiddleware)
     .get('/users/me', getMe)
     .put('/users/me', updateMe)
     .put('/users/me/password', changePassword)

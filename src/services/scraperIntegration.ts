@@ -44,8 +44,8 @@ class ScraperIntegrationService {
       console.log('🔄 Obteniendo eventos desde el scraper...');
       
       const [usabmxResponse, uciResponse] = await Promise.all([
-        fetch(`${SCRAPER_API_URL}/events/usabmx/`).catch(e => ({ ok: false, error: e })),
-        fetch(`${SCRAPER_API_URL}/events/uci/`).catch(e => ({ ok: false, error: e }))
+        fetch(`${SCRAPER_API_URL}/events/usabmx/`).catch(e => ({ ok: false, error: e } as any)),
+        fetch(`${SCRAPER_API_URL}/events/uci/`).catch(e => ({ ok: false, error: e } as any))
       ]);
 
       // El API devuelve { total: number, events: Event[] }
@@ -54,22 +54,22 @@ class ScraperIntegrationService {
 
       if (usabmxResponse.ok) {
         try {
-          usabmxData = await usabmxResponse.json();
+          usabmxData = await (usabmxResponse as Response).json();
         } catch (e) {
           console.error('❌ Error parsing USABMX response:', e);
         }
       } else {
-        console.error('❌ USABMX request failed:', usabmxResponse.status || usabmxResponse.error);
+        console.error('❌ USABMX request failed:', (usabmxResponse as any).status || (usabmxResponse as any).error);
       }
 
       if (uciResponse.ok) {
         try {
-          uciData = await uciResponse.json();
+          uciData = await (uciResponse as Response).json();
         } catch (e) {
           console.error('❌ Error parsing UCI response:', e);
         }
       } else {
-        console.error('❌ UCI request failed:', uciResponse.status || uciResponse.error);
+        console.error('❌ UCI request failed:', (uciResponse as any).status || (uciResponse as any).error);
       }
 
       const usabmx = Array.isArray(usabmxData?.events) ? usabmxData.events : [];
@@ -92,8 +92,8 @@ class ScraperIntegrationService {
       console.log('🔄 Obteniendo noticias desde el scraper...');
       
       const [usabmxResponse, uciResponse] = await Promise.all([
-        fetch(`${SCRAPER_API_URL}/news/`).catch(e => ({ ok: false, error: e })), // Endpoint general para noticias
-        fetch(`${SCRAPER_API_URL}/news/uci/`).catch(e => ({ ok: false, error: e })) // Endpoint específico para noticias UCI
+        fetch(`${SCRAPER_API_URL}/news/`).catch(e => ({ ok: false, error: e } as any)), // Endpoint general para noticias
+        fetch(`${SCRAPER_API_URL}/news/uci/`).catch(e => ({ ok: false, error: e } as any)) // Endpoint específico para noticias UCI
       ]);
 
       // El API devuelve { total: number, news: News[] }
@@ -102,22 +102,22 @@ class ScraperIntegrationService {
 
       if (usabmxResponse.ok) {
         try {
-          usabmxData = await usabmxResponse.json();
+          usabmxData = await (usabmxResponse as Response).json();
         } catch (e) {
           console.error('❌ Error parsing USABMX news response:', e);
         }
       } else {
-        console.error('❌ USABMX news request failed:', usabmxResponse.status || usabmxResponse.error);
+        console.error('❌ USABMX news request failed:', (usabmxResponse as any).status || (usabmxResponse as any).error);
       }
 
       if (uciResponse.ok) {
         try {
-          uciData = await uciResponse.json();
+          uciData = await (uciResponse as Response).json();
         } catch (e) {
           console.error('❌ Error parsing UCI news response:', e);
         }
       } else {
-        console.error('❌ UCI news request failed:', uciResponse.status || uciResponse.error);
+        console.error('❌ UCI news request failed:', (uciResponse as any).status || (uciResponse as any).error);
       }
 
       const usabmx = Array.isArray(usabmxData?.news) ? usabmxData.news : [];

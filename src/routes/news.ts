@@ -13,7 +13,7 @@ export const newsRoutes = new Elysia()
         if (source && typeof source === 'string') {
             const sourceFilter = source.toUpperCase();
             if (['USABMX', 'UCI'].includes(sourceFilter)) {
-                news = news.filter((item: any) => item.source === sourceFilter);
+                news = news.filter((item: any) => item.source === sourceFilter) as any[];
             }
         }
         
@@ -24,7 +24,7 @@ export const newsRoutes = new Elysia()
                 item.title?.toLowerCase().includes(search) ||
                 item.excerpt?.toLowerCase().includes(search) ||
                 item.category?.toLowerCase().includes(search)
-            );
+            ) as any[];
         }
         
         return {

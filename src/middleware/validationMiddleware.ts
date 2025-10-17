@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
 import rateLimit from 'express-rate-limit';
-import { SanitizerService } from '../services/sanitizerService.js';
-import logger from '../utils/logger.js';
+import { SanitizerService } from '../services/sanitizerService';
+import logger from '../utils/logger';
 
 // Configuración de rate limiting para validación
 const validationRateLimit = rateLimit({
@@ -404,8 +404,7 @@ function formatZodError(error: ZodError, source: string): ValidationError[] {
   return error.errors.map(err => ({
     field: `${source}.${err.path.join('.')}`,
     message: getSpanishErrorMessage(err.code, err.message),
-    code: err.code,
-    received: err.received
+    code: err.code
   }));
 }
 

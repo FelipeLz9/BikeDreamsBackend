@@ -8,8 +8,8 @@ import {
   scheduleSync,
   cancelScheduledSync,
   testScheduledSync
-} from '../controllers/autoSyncController.js';
-import { authMiddleware } from '../middleware/auth.js';
+} from '../controllers/autoSyncController';
+import { authMiddleware } from '../middleware/auth';
 
 export const autoSyncRoutes = new Elysia({ prefix: '/api/sync/auto' })
   .use(authMiddleware) // Requiere autenticación de admin

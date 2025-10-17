@@ -1,4 +1,4 @@
-import { prisma } from '../prisma/client.js';
+import { prisma } from '../prisma/client';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 
@@ -8,11 +8,13 @@ export const getUsers = async () => {
     return await prisma.user.findMany();
 };
 
-export const getUserById = async ({ params }: { params: { id: string } }) => {
+export const getUserById = async (context: any) => {
+    const { params } = context;
     return await prisma.user.findUnique({ where: { id: params.id } });
 };
 
-export const getMe = async ({ headers }: { headers: any }) => {
+export const getMe = async (context: any) => {
+    const { headers } = context;
     const authHeader = headers.authorization;
     
     if (!authHeader) {
@@ -50,7 +52,14 @@ export const getMe = async ({ headers }: { headers: any }) => {
     }
 };
 
-export const updateMe = async ({ headers, body }: { headers: any, body: { name?: string, avatar?: string } }) => {
+export const updateMe = async (context: any) => {
+    const { headers, body } = context;
+    
+    // Validar que el body tenga la estructura esperada
+    if (!body || typeof body !== 'object') {
+        return { error: 'Datos de actualización requeridos' };
+    }
+
     const authHeader = headers.authorization;
     
     if (!authHeader) {
@@ -88,7 +97,14 @@ export const updateMe = async ({ headers, body }: { headers: any, body: { name?:
     }
 };
 
-export const changePassword = async ({ headers, body }: { headers: any, body: { currentPassword: string, newPassword: string } }) => {
+export const changePassword = async (context: any) => {
+    const { headers, body } = context;
+    
+    // Validar que el body tenga la estructura esperada
+    if (!body || typeof body !== 'object') {
+        return { error: 'Datos de cambio de contraseña requeridos' };
+    }
+
     const authHeader = headers.authorization;
     
     if (!authHeader) {

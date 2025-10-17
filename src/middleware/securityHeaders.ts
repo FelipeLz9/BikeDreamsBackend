@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia';
-import { SecurityLogger } from '../services/securityLogger.js';
+import { SecurityLogger } from '../services/securityLogger';
 
 // Configuración de Content Security Policy
 interface CSPConfig {
@@ -251,15 +251,15 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
 
   return new Elysia({ name: 'security-headers' })
     .onRequest((context) => {
-      const response = context.response || new Response();
-      const headers = new Headers(response.headers);
+      const { set, request } = context;
+      const headersToApply: Record<string, string> = {};
 
       // HSTS (HTTP Strict Transport Security)
-      if (config.hsts && context.request.url.startsWith('https://')) {
+      if (config.hsts && request.url.startsWith('https://')) {
         let hstsValue = `max-age=${config.hsts.maxAge || 31536000}`;
         if (config.hsts.includeSubDomains) hstsValue += '; includeSubDomains';
         if (config.hsts.preload) hstsValue += '; preload';
-        headers.set('Strict-Transport-Security', hstsValue);
+        headersToApply['Strict-Transport-Security'] = hstsValue;
       }
 
       // Content Security Policy
@@ -272,13 +272,12 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
             return `${key} ${values}`;
           })
           .join('; ');
-        
-        headers.set('Content-Security-Policy', cspDirectives);
+        headersToApply['Content-Security-Policy'] = cspDirectives;
       }
 
       // X-Content-Type-Options
       if (config.noSniff) {
-        headers.set('X-Content-Type-Options', 'nosniff');
+        headersToApply['X-Content-Type-Options'] = 'nosniff';
       }
 
       // X-Frame-Options
@@ -287,32 +286,32 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
         if (frameValue === 'allow-from' && config.frameguard.domain) {
           frameValue += ` ${config.frameguard.domain}`;
         }
-        headers.set('X-Frame-Options', frameValue.toUpperCase());
+        headersToApply['X-Frame-Options'] = frameValue.toUpperCase();
       }
 
       // X-XSS-Protection
       if (config.xssFilter) {
-        headers.set('X-XSS-Protection', '1; mode=block');
+        headersToApply['X-XSS-Protection'] = '1; mode=block';
       }
 
       // Referrer Policy
       if (config.referrerPolicy) {
-        headers.set('Referrer-Policy', config.referrerPolicy);
+        headersToApply['Referrer-Policy'] = config.referrerPolicy;
       }
 
       // Cross-Origin-Embedder-Policy
       if (config.crossOriginEmbedderPolicy) {
-        headers.set('Cross-Origin-Embedder-Policy', config.crossOriginEmbedderPolicy);
+        headersToApply['Cross-Origin-Embedder-Policy'] = config.crossOriginEmbedderPolicy as string;
       }
 
       // Cross-Origin-Opener-Policy
       if (config.crossOriginOpenerPolicy) {
-        headers.set('Cross-Origin-Opener-Policy', config.crossOriginOpenerPolicy);
+        headersToApply['Cross-Origin-Opener-Policy'] = config.crossOriginOpenerPolicy as string;
       }
 
       // Cross-Origin-Resource-Policy
       if (config.crossOriginResourcePolicy) {
-        headers.set('Cross-Origin-Resource-Policy', config.crossOriginResourcePolicy);
+        headersToApply['Cross-Origin-Resource-Policy'] = config.crossOriginResourcePolicy as string;
       }
 
       // Permissions Policy (antes Feature Policy)
@@ -325,45 +324,44 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
             return `${key}=(${values})`;
           })
           .join(', ');
-        
-        headers.set('Permissions-Policy', permissionsDirectives);
+        headersToApply['Permissions-Policy'] = permissionsDirectives;
       }
 
       // Expect-CT
-      if (config.expectCt && context.request.url.startsWith('https://')) {
+      if (config.expectCt && request.url.startsWith('https://')) {
         let expectCtValue = `max-age=${config.expectCt.maxAge || 86400}`;
         if (config.expectCt.enforce) expectCtValue += ', enforce';
         if (config.expectCt.reportUri) expectCtValue += `, report-uri="${config.expectCt.reportUri}"`;
-        headers.set('Expect-CT', expectCtValue);
+        headersToApply['Expect-CT'] = expectCtValue;
       }
 
       // Hide server information
       if (config.hideServer) {
-        headers.set('Server', 'BikeDreams');
-        headers.delete('X-Powered-By');
+        headersToApply['Server'] = 'BikeDreams';
+        // Can't delete request headers; ensure we don't set X-Powered-By
       }
 
       // DNS Prefetch Control
       if (config.dnsPrefetchControl) {
-        headers.set('X-DNS-Prefetch-Control', 'off');
+        headersToApply['X-DNS-Prefetch-Control'] = 'off';
       }
 
       // IE No Open
       if (config.ieNoOpen) {
-        headers.set('X-Download-Options', 'noopen');
+        headersToApply['X-Download-Options'] = 'noopen';
       }
 
       // No Cache (for sensitive endpoints)
       if (config.noCache) {
-        headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        headers.set('Pragma', 'no-cache');
-        headers.set('Expires', '0');
-        headers.set('Surrogate-Control', 'no-store');
+        headersToApply['Cache-Control'] = 'no-store, no-cache, must-revalidate, proxy-revalidate';
+        headersToApply['Pragma'] = 'no-cache';
+        headersToApply['Expires'] = '0';
+        headersToApply['Surrogate-Control'] = 'no-store';
       }
 
       // Security headers adicionales
-      headers.set('X-Permitted-Cross-Domain-Policies', 'none');
-      headers.set('Clear-Site-Data', '"cache", "cookies", "storage", "executionContexts"');
+      headersToApply['X-Permitted-Cross-Domain-Policies'] = 'none';
+      headersToApply['Clear-Site-Data'] = '"cache", "cookies", "storage", "executionContexts"';
 
       // Log security headers application
       SecurityLogger.logSecurityEvent({
@@ -371,16 +369,15 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
         severity: 'low',
         details: {
           action: 'security_headers_applied',
-          url: context.request.url,
-          userAgent: context.request.headers.get('user-agent'),
-          headersApplied: Object.keys(Object.fromEntries(headers.entries()))
+          url: request.url,
+          userAgent: request.headers.get('user-agent'),
+          headersApplied: Object.keys(headersToApply)
         }
       });
 
-      return new Response(response.body, {
-        ...response,
-        headers
-      });
+      // Merge into Elysia's response headers
+      set.headers = { ...(set.headers || {}), ...headersToApply } as any;
+      return undefined;
     });
 }
 

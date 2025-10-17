@@ -1,4 +1,4 @@
-import { prisma } from '../prisma/client.js';
+import { prisma } from '../prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -280,9 +280,9 @@ export class AuthService {
     // Generar access token
     const accessToken = jwt.sign(
       payload,
-      JWT_SECRET as string,
+      JWT_SECRET!,
       {
-        expiresIn: ACCESS_TOKEN_EXPIRY,
+        expiresIn: '15m',
         issuer: 'bikedreams-api',
         audience: 'bikedreams-app'
       }
@@ -337,8 +337,8 @@ export class AuthService {
         role: storedRefreshToken.user.role
       };
 
-      const accessToken = jwt.sign(payload, JWT_SECRET as string, {
-        expiresIn: ACCESS_TOKEN_EXPIRY,
+      const accessToken = jwt.sign(payload, JWT_SECRET!, {
+        expiresIn: '15m',
         issuer: 'bikedreams-api',
         audience: 'bikedreams-app'
       });

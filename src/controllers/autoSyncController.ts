@@ -1,6 +1,6 @@
-import { syncSchedulerService } from '../services/syncScheduler.js';
-import { syncManagerService } from '../services/syncManager.js';
-import { ApiResponse, createErrorResponse, createSuccessResponse } from '../utils/apiResponse.js';
+import { syncSchedulerService } from '../services/syncScheduler';
+import { syncManagerService } from '../services/syncManager';
+import { ApiResponse, createErrorResponse, createSuccessResponse } from '../utils/apiResponse';
 
 /**
  * Inicializa el sistema de sincronización automática

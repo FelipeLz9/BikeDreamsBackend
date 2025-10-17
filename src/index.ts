@@ -1,32 +1,32 @@
 import { Elysia } from 'elysia';
 import { cors } from "@elysiajs/cors";
-import { authRoutes } from './routes/auth.js';
-import { userRoutes } from './routes/users.js';
-import { eventRoutes } from './routes/events.js';
-import { forumRoutes } from './routes/forum.js';
-import { newsRoutes } from './routes/news.js';
-import { riderRoutes } from './routes/riders.js';
-import { donationRoutes } from './routes/donations.js';
-import { adminRoutes } from './routes/admin.js';
-import { errorHandler } from './middleware/errorHandler.js';
+import { authRoutes } from './routes/auth';
+import { userRoutes } from './routes/users';
+import { eventRoutes } from './routes/events';
+import { forumRoutes } from './routes/forum';
+import { newsRoutes } from './routes/news';
+import { riderRoutes } from './routes/riders';
+import { donationRoutes } from './routes/donations';
+import { adminRoutes } from './routes/admin';
+import { errorHandler } from './middleware/errorHandler';
 import { swagger } from '@elysiajs/swagger';
-import { fullSecurityHeaders } from './middleware/securityHeaders.js';
-import { searchRoutes } from "./routes/search.js";
-import { syncRoutes } from "./routes/sync.js";
-import { syncDebugRoutes } from "./routes/sync-debug.js";
-import { syncManagementRoutes } from "./routes/sync-management.js";
-import { autoSyncRoutes } from "./routes/auto-sync.js";
-import { optimizedEventRoutes } from "./routes/optimized-events.js";
-import { testRoutes } from "./routes/test.js";
-import { rbacRoutes } from "./routes/rbac.js";
+import { fullSecurityHeaders } from './middleware/securityHeaders';
+import { searchRoutes } from "./routes/search";
+import { syncRoutes } from "./routes/sync";
+import { syncDebugRoutes } from "./routes/sync-debug";
+import { syncManagementRoutes } from "./routes/sync-management";
+import { autoSyncRoutes } from "./routes/auto-sync";
+import { optimizedEventRoutes } from "./routes/optimized-events";
+import { testRoutes } from "./routes/test";
+import { rbacRoutes } from "./routes/rbac";
 import { 
     rateLimiterMiddleware, 
     suspiciousActivityDetection, 
     ipBlockingMiddleware 
-} from './middleware/rateLimiter.js';
-import { AuthService } from './services/authService.js';
-import { securityMonitor } from './services/securityMonitor.js';
-import { SecurityLogger } from './services/securityLogger.js';
+} from './middleware/rateLimiter';
+import { AuthService } from './services/authService';
+import { securityMonitor } from './services/securityMonitor';
+import { SecurityLogger } from './services/securityLogger';
 import cron from 'node-cron';
 
 // Environment configuration

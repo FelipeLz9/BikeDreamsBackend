@@ -1,7 +1,7 @@
-import { AuthService } from '../services/authService.js';
-import { prisma } from '../prisma/client.js';
+import { AuthService } from '../services/authService';
+import { prisma } from '../prisma/client';
 import { SecurityEventType, LogSeverity } from '@prisma/client';
-import { logSecurityEvent as logToSecurityLogger } from '../services/securityLogger.js';
+import { logSecurityEvent as logToSecurityLogger } from '../services/securityLogger';
 
 // Interfaz para metadata del cliente
 interface ClientMetadata {
@@ -27,14 +27,18 @@ function extractClientMetadata(headers: any): ClientMetadata {
 /**
  * Registro de nuevo usuario con validaciones robustas
  */
-export const register = async ({ 
-    body, 
-    headers 
-}: { 
-    body: { name: string; email: string; password: string };
-    headers: any;
-}) => {
+export const register = async (context: any) => {
+    const { body, headers } = context;
     try {
+        // Validar que el body tenga la estructura esperada
+        if (!body || typeof body !== 'object') {
+            return {
+                success: false,
+                error: 'Datos de registro requeridos',
+                message: 'Se requieren datos válidos para el registro'
+            };
+        }
+
         // Extraer metadata del cliente
         const metadata = extractClientMetadata(headers);
 
@@ -102,14 +106,18 @@ export const register = async ({
 /**
  * Login con protección contra ataques de fuerza bruta
  */
-export const login = async ({ 
-    body, 
-    headers 
-}: { 
-    body: { email: string; password: string };
-    headers: any;
-}) => {
+export const login = async (context: any) => {
+    const { body, headers } = context;
     try {
+        // Validar que el body tenga la estructura esperada
+        if (!body || typeof body !== 'object') {
+            return {
+                success: false,
+                error: 'Datos de login requeridos',
+                message: 'Se requieren email y contraseña'
+            };
+        }
+
         // Extraer metadata del cliente
         const metadata = extractClientMetadata(headers);
 
@@ -177,14 +185,18 @@ export const login = async ({
 /**
  * Renovar access token usando refresh token
  */
-export const refreshToken = async ({
-    body,
-    headers
-}: {
-    body: { refreshToken: string };
-    headers: any;
-}) => {
+export const refreshToken = async (context: any) => {
+    const { body, headers } = context;
     try {
+        // Validar que el body tenga la estructura esperada
+        if (!body || typeof body !== 'object') {
+            return {
+                success: false,
+                error: 'Refresh token requerido',
+                message: 'Se requiere un refresh token válido'
+            };
+        }
+
         const metadata = extractClientMetadata(headers);
 
         if (!body.refreshToken) {
@@ -216,17 +228,8 @@ export const refreshToken = async ({
 /**
  * Logout seguro
  */
-export const logout = async ({
-    user,
-    tokenPayload,
-    headers,
-    body
-}: {
-    user: any;
-    tokenPayload: any;
-    headers: any;
-    body?: { logoutAllSessions?: boolean };
-}) => {
+export const logout = async (context: any) => {
+    const { user, tokenPayload, headers, body } = context;
     try {
         const metadata = extractClientMetadata(headers);
         const sessionId = body?.logoutAllSessions ? undefined : tokenPayload?.sessionId;
@@ -251,7 +254,8 @@ export const logout = async ({
 /**
  * Verificar estado de autenticación
  */
-export const me = async ({ user }: { user: any }) => {
+export const me = async (context: any) => {
+    const { user } = context;
     try {
         if (!user) {
             return {
@@ -286,16 +290,18 @@ export const me = async ({ user }: { user: any }) => {
 /**
  * Cambiar contraseña
  */
-export const changePassword = async ({
-    user,
-    body,
-    headers
-}: {
-    user: any;
-    body: { currentPassword: string; newPassword: string };
-    headers: any;
-}) => {
+export const changePassword = async (context: any) => {
+    const { user, body, headers } = context;
     try {
+        // Validar que el body tenga la estructura esperada
+        if (!body || typeof body !== 'object') {
+            return {
+                success: false,
+                error: 'Datos de cambio de contraseña requeridos',
+                message: 'Se requieren contraseña actual y nueva'
+            };
+        }
+
         const metadata = extractClientMetadata(headers);
 
         if (!body.currentPassword || !body.newPassword) {

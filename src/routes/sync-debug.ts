@@ -5,7 +5,7 @@ import {
   syncNews,
   syncAll,
   getSyncStats
-} from '../controllers/syncController.js';
+} from '../controllers/syncController';
 
 export const syncDebugRoutes = new Elysia({ prefix: '/api/debug' })
   

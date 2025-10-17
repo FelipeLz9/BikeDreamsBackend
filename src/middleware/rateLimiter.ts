@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia';
-import { prisma } from '../prisma/client.js';
+import { prisma } from '../prisma/client';
 import { SecurityEventType, LogSeverity } from '@prisma/client';
 
 // Configuración de rate limiting
@@ -280,8 +280,8 @@ export const ipBlockingMiddleware = new Elysia()
   })
   .onBeforeHandle(async ({ clientIp }) => {
     // Lista de IPs bloqueadas (en producción usar base de datos o Redis)
-    const blockedIPs = new Set([
-      // IPs conocidas como maliciosas se pueden agregar aquí
+    const blockedIPs: Set<string> = new Set<string>([
+      // ...
     ]);
 
     if (blockedIPs.has(clientIp)) {

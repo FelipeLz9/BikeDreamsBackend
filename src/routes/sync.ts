@@ -5,8 +5,8 @@ import {
   syncNews,
   syncAll,
   getSyncStats
-} from '../controllers/syncController.js';
-import { authMiddleware } from '../middleware/auth.js';
+} from '../controllers/syncController';
+import { authMiddleware } from '../middleware/auth';
 
 export const syncRoutes = new Elysia({ prefix: '/api/sync' })
   .use(authMiddleware) // Requiere autenticación

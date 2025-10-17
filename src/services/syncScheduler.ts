@@ -76,7 +76,6 @@ class SyncSchedulerService {
         console.log(`🔄 Executing scheduled sync for configuration ${configurationId}`);
         await this.executeScheduledSync(configurationId);
       }, {
-        scheduled: false, // No iniciar automáticamente
         timezone: 'America/Mexico_City' // Ajustar según necesidades
       });
 
@@ -202,11 +201,12 @@ class SyncSchedulerService {
    */
   private async updateLastRun(configurationId: number) {
     try {
+      const nextRun = await this.calculateNextRunForConfig(configurationId);
       await prisma.syncSchedule.update({
         where: { configurationId },
         data: { 
           lastRun: new Date(),
-          nextRun: this.calculateNextRunForConfig(configurationId)
+          nextRun
         }
       });
     } catch (error) {

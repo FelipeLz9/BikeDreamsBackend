@@ -1,8 +1,8 @@
 import { Elysia } from 'elysia';
-import { RBACService, PermissionCheck } from '../services/rbacService.js';
+import { RBACService, PermissionCheck } from '../services/rbacService';
 import { PermissionAction, Role, SecurityEventType, LogSeverity } from '@prisma/client';
-import { authMiddleware } from './auth.js';
-import { prisma } from '../prisma/client.js';
+import { authMiddleware } from './auth';
+import { prisma } from '../prisma/client';
 
 /**
  * Middleware que requiere permiso específico para un recurso
@@ -19,17 +19,15 @@ export const requirePermission = (
 ) => {
   return new Elysia()
     .use(authMiddleware)
-    .onBeforeHandle(async (context) => {
-      const { user, isAuthenticated, clientIp, userAgent, params, body } = context;
+    .onBeforeHandle(async (context: any) => {
+      const { user, isAuthenticated, clientIp, userAgent, params, body, set, path } = context;
 
       if (!isAuthenticated || !user) {
-        return new Response(JSON.stringify({
+        set.status = 401;
+        return {
           error: 'Unauthorized',
           message: 'Autenticación requerida'
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
 
       // Extraer resourceId si se especifica
@@ -73,14 +71,11 @@ export const requirePermission = (
 
       if (!result.allowed) {
         await logUnauthorizedAccess(user.id, resource, action, clientIp, userAgent, result.reason);
-
-        return new Response(JSON.stringify({
+        set.status = 403;
+        return {
           error: 'Forbidden',
-          message: result.reason || 'No tienes permisos para realizar esta acción'
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
+          message: result.reason || 'Insufficient permissions'
+        };
       }
 
       // Agregar información de permisos al contexto para uso posterior
@@ -99,15 +94,14 @@ export const requirePermission = (
 export const requireRoles = (roles: Role[]) => {
   return new Elysia()
     .use(authMiddleware)
-    .onBeforeHandle(async ({ user, isAuthenticated, clientIp, userAgent }) => {
+    .onBeforeHandle(async (ctx: any) => {
+      const { user, isAuthenticated, clientIp, userAgent, set } = ctx;
       if (!isAuthenticated || !user) {
-        return new Response(JSON.stringify({
+        set.status = 401;
+        return {
           error: 'Unauthorized',
           message: 'Autenticación requerida'
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
 
       // Verificar rol principal
@@ -145,13 +139,11 @@ export const requireRoles = (roles: Role[]) => {
           `Rol insuficiente. Requerido: ${roles.join('|')}, Actual: ${user.role}`
         );
 
-        return new Response(JSON.stringify({
+        set.status = 403;
+        return {
           error: 'Forbidden',
           message: `Acceso denegado. Roles requeridos: ${roles.join(', ')}`
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
     });
 };
@@ -162,15 +154,14 @@ export const requireRoles = (roles: Role[]) => {
 export const requireMinRoleLevel = (minLevel: number) => {
   return new Elysia()
     .use(authMiddleware)
-    .onBeforeHandle(async ({ user, isAuthenticated, clientIp, userAgent }) => {
+    .onBeforeHandle(async (ctx: any) => {
+      const { user, isAuthenticated, clientIp, userAgent, set } = ctx;
       if (!isAuthenticated || !user) {
-        return new Response(JSON.stringify({
+        set.status = 401;
+        return {
           error: 'Unauthorized',
           message: 'Autenticación requerida'
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
 
       const userLevel = await getUserMaxLevel(user.id);
@@ -185,13 +176,11 @@ export const requireMinRoleLevel = (minLevel: number) => {
           `Nivel insuficiente. Requerido: ${minLevel}, Actual: ${userLevel}`
         );
 
-        return new Response(JSON.stringify({
+        set.status = 403;
+        return {
           error: 'Forbidden',
           message: 'Nivel de autorización insuficiente'
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
     });
 };
@@ -206,28 +195,24 @@ export const requireResourceOwnershipOrPermission = (
 ) => {
   return new Elysia()
     .use(authMiddleware)
-    .onBeforeHandle(async (context) => {
-      const { user, isAuthenticated, params, clientIp, userAgent } = context;
+    .onBeforeHandle(async (context: any) => {
+      const { user, isAuthenticated, params, clientIp, userAgent, set } = context;
 
       if (!isAuthenticated || !user) {
-        return new Response(JSON.stringify({
+        set.status = 401;
+        return {
           error: 'Unauthorized',
           message: 'Autenticación requerida'
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
 
       const resourceId = params[resourceIdParam];
       if (!resourceId) {
-        return new Response(JSON.stringify({
+        set.status = 400;
+        return {
           error: 'Bad Request',
           message: 'ID de recurso requerido'
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
 
       // Verificar si es el propietario
@@ -250,14 +235,11 @@ export const requireResourceOwnershipOrPermission = (
       if (!result.allowed) {
         await logUnauthorizedAccess(user.id, resource, action, clientIp, userAgent, 
           `No es propietario ni tiene permisos: ${result.reason}`);
-
-        return new Response(JSON.stringify({
+        set.status = 403;
+        return {
           error: 'Forbidden',
           message: 'Solo el propietario o usuarios autorizados pueden realizar esta acción'
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
     });
 };
@@ -268,26 +250,23 @@ export const requireResourceOwnershipOrPermission = (
 export const requireUserManagementPermission = () => {
   return new Elysia()
     .use(authMiddleware)
-    .onBeforeHandle(async ({ user, isAuthenticated, params, clientIp, userAgent }) => {
+    .onBeforeHandle(async (ctx: any) => {
+      const { user, isAuthenticated, params, clientIp, userAgent, set } = ctx;
       if (!isAuthenticated || !user) {
-        return new Response(JSON.stringify({
+        set.status = 401;
+        return {
           error: 'Unauthorized',
           message: 'Autenticación requerida'
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
 
       const targetUserId = params.userId || params.id;
       if (!targetUserId) {
-        return new Response(JSON.stringify({
+        set.status = 400;
+        return {
           error: 'Bad Request',
           message: 'ID de usuario requerido'
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
 
       // Verificar si puede gestionar el usuario objetivo
@@ -303,13 +282,11 @@ export const requireUserManagementPermission = () => {
           `Intento de gestionar usuario de nivel superior: ${targetUserId}`
         );
 
-        return new Response(JSON.stringify({
+        set.status = 403;
+        return {
           error: 'Forbidden',
           message: 'No puedes gestionar usuarios de nivel superior o igual al tuyo'
-        }), {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
     });
 };
@@ -327,17 +304,15 @@ export const conditionalPermission = (
 ) => {
   return new Elysia()
     .use(authMiddleware)
-    .onBeforeHandle(async (context) => {
-      const { user, isAuthenticated, clientIp, userAgent } = context;
+    .onBeforeHandle(async (context: any) => {
+      const { user, isAuthenticated, clientIp, userAgent, set } = context;
 
       if (!isAuthenticated || !user) {
-        return new Response(JSON.stringify({
+        set.status = 401;
+        return {
           error: 'Unauthorized',
           message: 'Autenticación requerida'
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        };
       }
 
       for (const rule of conditions) {
@@ -355,13 +330,11 @@ export const conditionalPermission = (
           if (!result.allowed) {
             await logUnauthorizedAccess(user.id, rule.resource, rule.action, clientIp, userAgent, result.reason);
 
-            return new Response(JSON.stringify({
+            set.status = 403;
+            return {
               error: 'Forbidden',
-              message: rule.message || result.reason || 'Permisos insuficientes'
-            }), {
-              status: 403,
-              headers: { 'Content-Type': 'application/json' }
-            });
+              message: rule.message || result.reason || 'Insufficient permissions'
+            };
           }
 
           break; // Solo aplicar la primera condición que coincida

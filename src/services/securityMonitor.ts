@@ -597,12 +597,13 @@ Timestamp: ${new Date().toISOString()}
   private async sendSlackAlert(alert: any): Promise<void> {
     if (!this.slackWebhook) return;
 
-    const color = {
+    const colors = {
       low: '#36a64f',
       medium: '#ff9500',
       high: '#ff0000',
       critical: '#8B0000'
-    }[alert.severity] || '#ff0000';
+    };
+    const color = colors[alert.severity as keyof typeof colors] || '#ff0000';
 
     try {
       await this.slackWebhook.send({
