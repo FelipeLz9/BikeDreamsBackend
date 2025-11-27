@@ -2,25 +2,26 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     /* ==============================================
-     * BikeDreams Backend - Main TypeScript Configuration
+     * BikeDreams Backend - Staging TypeScript Configuration
      * ==============================================
-     * This is the main configuration that extends the base.
-     * It provides a balanced configuration for general development.
+     * Optimized for staging environment with production-like settings
+     * but with some debugging capabilities.
      */
 
-    /* Main-specific overrides */
-    "target": "ES2022",                                   /* Modern target for main development */
+    /* Staging-specific overrides */
+    "target": "ES2020",                                   /* Slightly older target for better compatibility */
     "module": "NodeNext",                                 /* Use Node.js module system */
     "moduleResolution": "NodeNext",                       /* Use Node.js module resolution */
 
-    /* Emit - Main Balanced */
-    "declaration": true,                                  /* Generate declaration files */
-    "declarationMap": true,                               /* Generate declaration maps */
+    /* Emit - Staging Optimized */
+    "declaration": true,                                  /* Generate declaration files for staging */
+    "declarationMap": true,                               /* Generate declaration maps for debugging */
     "sourceMap": true,                                    /* Generate source maps for debugging */
-    "removeComments": false,                              /* Keep comments for documentation */
-    "noEmit": false,                                      /* Emit files */
+    "inlineSourceMap": false,                             /* Use separate source map files */
+    "removeComments": true,                               /* Remove comments for smaller bundle */
+    "noEmit": false,                                      /* Emit files for staging */
 
-    /* Type Checking - Main Strict */
+    /* Type Checking - Staging Strict */
     "strict": true,                                       /* Enable strict mode */
     "noImplicitAny": true,                                /* Error on implicit any */
     "strictNullChecks": true,                             /* Enable null checks */
@@ -33,22 +34,26 @@
     "noUnusedParameters": true,                           /* Error on unused parameters */
     "allowUnreachableCode": false,                        /* Error on unreachable code */
 
-    /* Main Features */
+    /* Staging Features */
     "allowJs": false,                                     /* Don't allow JavaScript files */
     "checkJs": false,                                     /* Don't type check JS files */
     "skipLibCheck": true,                                 /* Skip lib checking for faster compilation */
 
-    /* Output - Main */
-    "outDir": "./dist",                                   /* Main output directory */
+    /* Output - Staging */
+    "outDir": "./dist/staging",                           /* Staging output directory */
     "rootDir": "./src",                                   /* Source root directory */
-    "declarationDir": "./dist/types",                     /* Main declaration directory */
+    "declarationDir": "./dist/staging/types",             /* Staging declaration directory */
 
-    /* Incremental Compilation - Main */
+    /* Incremental Compilation - Staging */
     "incremental": true,                                  /* Enable incremental compilation */
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",             /* Main build info file */
+    "tsBuildInfoFile": "./dist/staging/.tsbuildinfo",    /* Staging build info file */
     "composite": false,                                   /* Not a composite project */
 
-    /* Path Mapping - Main */
+    /* Staging Optimizations */
+    "importHelpers": true,                                /* Use tslib helpers for better tree-shaking */
+    "downlevelIteration": true,                           /* Enable downlevel iteration */
+
+    /* Path Mapping - Staging */
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"],
@@ -60,11 +65,11 @@
       "@/routes/*": ["src/routes/*"],
       "@/schemas/*": ["src/schemas/*"],
       "@/tests/*": ["src/tests/*"],
-      "@/config/*": ["src/config/*"]
+      "@/config/*": ["src/config/*"]                      /* Staging config path */
     }
   },
 
-  /* Include - Main */
+  /* Include - Staging */
   "include": [
     "src/**/*",                                           /* Include all source files */
     "src/**/*.ts",                                        /* Include TypeScript files */
@@ -72,31 +77,33 @@
     "src/**/*.json"                                       /* Include JSON files */
   ],
 
-  /* Exclude - Main */
+  /* Exclude - Staging */
   "exclude": [
     "node_modules",                                       /* Exclude node_modules */
     "dist",                                               /* Exclude build output */
     "build",                                              /* Exclude build output */
     "coverage",                                           /* Exclude coverage reports */
-    "**/*.test.ts",                                       /* Exclude test files from main build */
-    "**/*.spec.ts",                                       /* Exclude spec files from main build */
+    "**/*.test.ts",                                       /* Exclude test files from build */
+    "**/*.spec.ts",                                       /* Exclude spec files from build */
     "**/*.test.js",                                       /* Exclude test JS files */
     "**/*.spec.js",                                       /* Exclude spec JS files */
     "**/__tests__/**",                                    /* Exclude test directories */
     "**/tests/**",                                        /* Exclude test directories */
     "**/*.d.ts",                                          /* Exclude declaration files */
-    "**/node_modules/**"                                  /* Exclude nested node_modules */
+    "**/node_modules/**",                                 /* Exclude nested node_modules */
+    "src/**/*.js",                                        /* Exclude JavaScript files */
+    "src/**/*.jsx"                                        /* Exclude JavaScript React files */
   ],
 
-  /* Main-specific settings */
+  /* Staging-specific settings */
   "ts-node": {
     "esm": true,                                          /* Enable ESM support */
     "experimentalSpecifierResolution": "node",            /* Use Node.js specifier resolution */
-    "transpileOnly": false,                               /* Enable type checking */
+    "transpileOnly": false,                               /* Enable type checking for staging */
     "files": true,                                        /* Include files in compilation */
     "compilerOptions": {
       "module": "NodeNext",                               /* Use NodeNext for ts-node */
-      "target": "ES2022"                                  /* Main target for ts-node */
+      "target": "ES2020"                                  /* Staging target for ts-node */
     }
   }
 }

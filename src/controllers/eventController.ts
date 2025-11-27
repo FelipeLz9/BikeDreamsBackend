@@ -42,55 +42,10 @@ async function fetchEventSource(endpoint: string, sourceName: string) {
 
 export async function getEvents(filter?: 'upcoming' | 'past') {
   try {
-    console.log(`🚀 Fetching events from database (filter: ${filter || 'all'})`);
+    console.log(`🚀 Fetching events from scraper API (filter: ${filter || 'all'})`);
     
-    // First, try to get events from the database
-    let whereClause: any = {};
-    if (filter === 'upcoming') {
-      whereClause.date = { gte: new Date() };
-    } else if (filter === 'past') {
-      whereClause.date = { lt: new Date() };
-    }
-    
-    const dbEvents = await prisma.event.findMany({
-      where: whereClause,
-      orderBy: { date: 'desc' }
-    });
-    
-    console.log(`🗄️ Found ${dbEvents.length} events in database`);
-    
-    // If we have events in the database, use them
-    if (dbEvents.length > 0) {
-      const usabmxCount = dbEvents.filter(e => e.source === 'USABMX').length;
-      const uciCount = dbEvents.filter(e => e.source === 'UCI').length;
-      
-      return {
-        total: dbEvents.length,
-        events: dbEvents.map(event => ({
-          // Map database event to normalized format
-          id: event.external_id || event.id,
-          title: event.title || event.name,
-          date: event.start_date || event.date,
-          start_date: event.start_date,
-          end_date: event.end_date,
-          location: event.location,
-          city: event.city,
-          state: event.state,
-          country: event.country,
-          continent: event.continent,
-          latitude: event.latitude,
-          longitude: event.longitude,
-          details_url: event.details_url,
-          is_uci_event: event.is_uci_event,
-          source: event.source
-        })),
-        sources: { usabmx: usabmxCount, uci: uciCount },
-        dataSource: 'database'
-      };
-    }
-    
-    // Fallback to scraper API if no data in database
-    console.log('📡 No events in database, falling back to scraper API');
+    // Use scraper API directly (skip database for now)
+    console.log('📡 Fetching events from scraper API');
     
     const usabmxEndpoint = filter 
       ? `/events/usabmx/${filter}`

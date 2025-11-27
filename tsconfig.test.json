@@ -1,0 +1,164 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    /* ==============================================
+     * BikeDreams Backend - Test TypeScript Configuration
+     * ==============================================
+     * Optimized for testing with relaxed type checking
+     * and support for test files.
+     */
+
+    /* Test-specific overrides */
+    "target": "ES2022",                                   /* Modern target for testing */
+    "module": "ESNext",                                   /* Use ESNext modules for testing */
+    "moduleResolution": "Node",                           /* Use Node module resolution for testing */
+
+    /* Emit - Test Optimized */
+    "declaration": false,                                 /* Skip declaration files in testing */
+    "declarationMap": false,                              /* Skip declaration maps in testing */
+    "sourceMap": true,                                    /* Generate source maps for debugging tests */
+    "inlineSourceMap": false,                             /* Use separate source map files */
+    "removeComments": false,                              /* Keep comments for test debugging */
+    "noEmit": false,                                      /* Emit files for testing */
+
+    /* Type Checking - Test Relaxed */
+    "strict": true,                                       /* Keep strict mode for type safety */
+    "noImplicitAny": false,                               /* Allow implicit any for test flexibility */
+    "strictNullChecks": true,                             /* Keep null checks */
+    "strictFunctionTypes": true,                          /* Keep strict function types */
+    "noImplicitReturns": false,                           /* Allow missing returns in tests */
+    "noFallthroughCasesInSwitch": false,                  /* Allow switch fallthrough in tests */
+    "noUncheckedIndexedAccess": false,                    /* Relaxed for test flexibility */
+    "exactOptionalPropertyTypes": false,                  /* Relaxed for test flexibility */
+    "noUnusedLocals": false,                              /* Allow unused locals in tests */
+    "noUnusedParameters": false,                          /* Allow unused parameters in tests */
+    "allowUnreachableCode": true,                         /* Allow unreachable code for test setup */
+    "noImplicitOverride": false,                          /* Relaxed override requirements */
+
+    /* Test Features */
+    "allowJs": true,                                      /* Allow JavaScript files for mixed test projects */
+    "checkJs": false,                                     /* Don't type check JS files for speed */
+    "skipLibCheck": true,                                 /* Skip lib checking for faster compilation */
+
+    /* Output - Test */
+    "outDir": "./dist/test",                              /* Test output directory */
+    "rootDir": "./src",                                   /* Source root directory */
+    "declarationDir": "./dist/test/types",                /* Test declaration directory */
+
+    /* Incremental Compilation - Test */
+    "incremental": true,                                  /* Enable incremental compilation */
+    "tsBuildInfoFile": "./dist/test/.tsbuildinfo",        /* Test build info file */
+    "composite": false,                                   /* Not a composite project */
+
+    /* Test Optimizations */
+    "importHelpers": true,                                /* Use tslib helpers */
+    "downlevelIteration": true,                           /* Enable downlevel iteration */
+
+    /* Path Mapping - Test */
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/types/*": ["src/types/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/services/*": ["src/services/*"],
+      "@/controllers/*": ["src/controllers/*"],
+      "@/middleware/*": ["src/middleware/*"],
+      "@/routes/*": ["src/routes/*"],
+      "@/schemas/*": ["src/schemas/*"],
+      "@/tests/*": ["src/tests/*"],
+      "@/config/*": ["src/config/*"],                     /* Test config path */
+      "@/mocks/*": ["src/tests/mocks/*"],                 /* Test mocks path */
+      "@/fixtures/*": ["src/tests/fixtures/*"],           /* Test fixtures path */
+      "@/helpers/*": ["src/tests/helpers/*"]              /* Test helpers path */
+    }
+  },
+
+  /* Include - Test (Comprehensive) */
+  "include": [
+    "src/**/*",                                           /* Include all source files */
+    "src/**/*.ts",                                        /* Include TypeScript files */
+    "src/**/*.tsx",                                       /* Include TypeScript React files */
+    "src/**/*.js",                                        /* Include JavaScript files */
+    "src/**/*.jsx",                                       /* Include JavaScript React files */
+    "src/**/*.json",                                      /* Include JSON files */
+    "src/**/*.mjs",                                       /* Include ES modules */
+    "src/**/*.test.ts",                                   /* Include test files */
+    "src/**/*.spec.ts",                                   /* Include spec files */
+    "src/**/*.test.js",                                   /* Include test JS files */
+    "src/**/*.spec.js",                                   /* Include spec JS files */
+    "src/**/__tests__/**",                                /* Include test directories */
+    "src/**/tests/**",                                    /* Include test directories */
+    "src/**/mocks/**",                                    /* Include mock directories */
+    "src/**/fixtures/**",                                 /* Include fixture directories */
+    "src/**/helpers/**"                                   /* Include helper directories */
+  ],
+
+  /* Exclude - Test (Minimal) */
+  "exclude": [
+    "node_modules",                                       /* Exclude node_modules */
+    "dist",                                               /* Exclude build output */
+    "build",                                              /* Exclude build output */
+    "coverage",                                           /* Exclude coverage reports */
+    "**/*.d.ts",                                          /* Exclude declaration files */
+    "**/node_modules/**"                                  /* Exclude nested node_modules */
+  ],
+
+  /* Test-specific settings */
+  "ts-node": {
+    "esm": true,                                          /* Enable ESM support */
+    "experimentalSpecifierResolution": "node",            /* Use Node.js specifier resolution */
+    "transpileOnly": true,                                /* Skip type checking for faster test startup */
+    "files": true,                                        /* Include files in compilation */
+    "compilerOptions": {
+      "module": "ESNext",                                 /* Use ESNext for ts-node */
+      "target": "ES2022"                                  /* Test target for ts-node */
+    }
+  },
+
+  /* Jest Configuration Integration */
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.(ts|tsx)$": ["ts-jest", {
+        "useESM": true,
+        "tsconfig": "tsconfig.test.json"
+      }]
+    },
+    "moduleNameMapping": {
+      "^@/(.*)$": "<rootDir>/src/$1",
+      "^@/types/(.*)$": "<rootDir>/src/types/$1",
+      "^@/utils/(.*)$": "<rootDir>/src/utils/$1",
+      "^@/services/(.*)$": "<rootDir>/src/services/$1",
+      "^@/controllers/(.*)$": "<rootDir>/src/controllers/$1",
+      "^@/middleware/(.*)$": "<rootDir>/src/middleware/$1",
+      "^@/routes/(.*)$": "<rootDir>/src/routes/$1",
+      "^@/schemas/(.*)$": "<rootDir>/src/schemas/$1",
+      "^@/tests/(.*)$": "<rootDir>/src/tests/$1",
+      "^@/mocks/(.*)$": "<rootDir>/src/tests/mocks/$1",
+      "^@/fixtures/(.*)$": "<rootDir>/src/tests/fixtures/$1",
+      "^@/helpers/(.*)$": "<rootDir>/src/tests/helpers/$1"
+    },
+    "extensionsToTreatAsEsm": [".ts", ".tsx"],
+    "testMatch": [
+      "<rootDir>/src/**/__tests__/**/*.{js,ts}",
+      "<rootDir>/src/**/*.{test,spec}.{js,ts}"
+    ],
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/",
+      "<rootDir>/dist/",
+      "<rootDir>/build/"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{ts,tsx}",
+      "!src/**/*.d.ts",
+      "!src/**/*.test.{ts,tsx}",
+      "!src/**/*.spec.{ts,tsx}",
+      "!src/**/__tests__/**",
+      "!src/**/tests/**",
+      "!src/**/mocks/**",
+      "!src/**/fixtures/**",
+      "!src/**/helpers/**"
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia';
-import { getUsers, getUserById, getMe, updateMe, changePassword } from '../controllers/userController.js';
+import { getUsers, getUserById } from '../controllers/userControllerDirect.js';
+import { getMe, updateMe, changePassword } from '../controllers/userController.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 export const userRoutes = new Elysia()

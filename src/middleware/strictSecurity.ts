@@ -194,7 +194,7 @@ export function financialSecurityMiddleware() {
       const clientIP = getClientIP(context);
       const userAgent = context.request.headers.get('user-agent') || 'unknown';
       
-      // Verificar que la conexión sea HTTPS
+      // Verificar que la conexión sea HTTPS (solo en producción)
       if (!context.request.url.startsWith('https://') && process.env.NODE_ENV === 'production') {
         SecurityLogger.logAttackAttempt({
           type: 'attack_attempt',
@@ -237,13 +237,25 @@ export function financialSecurityMiddleware() {
  * Middleware específico para endpoints de autenticación
  */
 export function authSecurityMiddleware() {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
   const authConfig: SecurityHeadersConfig = {
-    hsts: {
+    hsts: process.env.NODE_ENV === 'production' ? {
       maxAge: 31536000,
       includeSubDomains: true,
       preload: true
-    },
-    contentSecurityPolicy: {
+    } : false,
+    contentSecurityPolicy: isDevelopment ? {
+      'default-src': ["'self'"],
+      'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'localhost:*', '127.0.0.1:*'],
+      'style-src': ["'self'", "'unsafe-inline'", 'fonts.googleapis.com'],
+      'font-src': ["'self'", 'fonts.gstatic.com'],
+      'img-src': ["'self'", 'data:', 'blob:', 'https:', 'http:'],
+      'connect-src': ["'self'", 'localhost:*', '127.0.0.1:*', 'ws:', 'wss:'],
+      'base-uri': ["'self'"],
+      'form-action': ["'self'"],
+      'frame-ancestors': ["'none'"]
+    } : {
       'default-src': ["'none'"],
       'script-src': ["'none'"],
       'style-src': ["'none'"],
@@ -255,7 +267,7 @@ export function authSecurityMiddleware() {
       'report-uri': ['/api/auth-csp-report']
     },
     cors: {
-      origin: process.env.AUTH_ALLOWED_ORIGINS?.split(',') || true,
+      origin: isDevelopment ? ['http://localhost:3000', 'http://127.0.0.1:3000'] : (process.env.AUTH_ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000']),
       credentials: true,
       methods: ['POST', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
@@ -278,14 +290,14 @@ export function authSecurityMiddleware() {
     noSniff: true,
     frameguard: { action: 'deny' },
     xssFilter: true,
-    referrerPolicy: 'no-referrer',
-    crossOriginEmbedderPolicy: 'require-corp',
-    crossOriginOpenerPolicy: 'same-origin',
-    crossOriginResourcePolicy: 'same-origin',
+    referrerPolicy: isDevelopment ? 'strict-origin-when-cross-origin' : 'no-referrer',
+    crossOriginEmbedderPolicy: isDevelopment ? 'unsafe-none' : 'require-corp',
+    crossOriginOpenerPolicy: isDevelopment ? 'same-origin-allow-popups' : 'same-origin',
+    crossOriginResourcePolicy: isDevelopment ? 'cross-origin' : 'same-origin',
     hideServer: true,
     dnsPrefetchControl: true,
     ieNoOpen: true,
-    noCache: true
+    noCache: !isDevelopment // Permitir cache en desarrollo
   };
 
   return new Elysia({ name: 'auth-security' })

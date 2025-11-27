@@ -55,7 +55,7 @@ export function normalizeNews(item: any) {
     id: item.id || crypto.randomUUID(),
     title: item.title || "Noticia sin título",
     date: item.published_at || item.date || new Date().toISOString(),
-    author: item.author || "Desconocido",
+    author: item.author || source, // Usar el source como autor en lugar de "Desconocido"
     category: item.category || "General",
     excerpt: item.summary || item.excerpt || "",
     url: item.url || "#",

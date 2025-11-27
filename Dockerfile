@@ -1,14 +1,22 @@
 # ==============================================
-# BikeDreams Backend - Production Dockerfile
+# BikeDreams Backend - Multi-Stage Dockerfile
 # ==============================================
+# This Dockerfile supports multiple environments:
+# - development: Hot reloading, debugging, dev tools
+# - staging: Production-like with monitoring
+# - production: Optimized for production
 
-# Build stage
-FROM oven/bun:1.1-alpine as builder
+# ==============================================
+# Base Stage - Common dependencies and setup
+# ==============================================
+FROM oven/bun:1.1-alpine as base
 
-# Install security updates
+# Install security updates and common tools
 RUN apk update && apk upgrade && apk add --no-cache \
     dumb-init \
     curl \
+    ca-certificates \
+    tzdata \
     && rm -rf /var/cache/apk/*
 
 # Set working directory
@@ -22,73 +30,191 @@ RUN addgroup --system --gid 1001 bikedreams \
 COPY --chown=bun:bikedreams package.json bun.lockb ./
 COPY --chown=bun:bikedreams prisma ./prisma/
 
-# Install dependencies
-RUN bun install --frozen-lockfile --production
+# Install all dependencies (including dev dependencies)
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY --chown=bun:bikedreams src ./src/
-COPY --chown=bun:bikedreams tsconfig.json ./
+COPY --chown=bun:bikedreams tsconfig*.json ./
+COPY --chown=bun:bikedreams prisma ./prisma/
 
 # Generate Prisma client
-RUN bunx prisma generate
+RUN bun run prisma:generate
 
-# Production stage
-FROM oven/bun:1.1-alpine as production
+# ==============================================
+# Development Stage
+# ==============================================
+FROM base as development
 
-# Install security updates and required packages
+# Install development tools
+RUN apk add --no-cache \
+    git \
+    vim \
+    htop \
+    && rm -rf /var/cache/apk/*
+
+# Set development environment
+ENV NODE_ENV=development
+ENV LOG_LEVEL=debug
+ENV ENABLE_DEBUG=true
+ENV ENABLE_SWAGGER=true
+ENV WATCH_MODE=true
+
+# Expose ports
+EXPOSE 3001 9229
+
+# Create directories for development
+RUN mkdir -p /app/logs /app/uploads /app/tmp
+
+# Set permissions
+RUN chown -R bun:bikedreams /app
+
+# Switch to non-root user
+USER bun
+
+# Health check for development
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Default command for development
+CMD ["bun", "run", "dev:env"]
+
+# ==============================================
+# Staging Stage
+# ==============================================
+FROM base as staging
+
+# Set staging environment
+ENV NODE_ENV=staging
+ENV LOG_LEVEL=info
+ENV ENABLE_DEBUG=false
+ENV ENABLE_SWAGGER=true
+ENV ENABLE_METRICS=true
+
+# Build the application for staging
+RUN bun run build:staging
+
+# Install only production dependencies
+RUN bun install --frozen-lockfile --production
+
+# Expose ports
+EXPOSE 3001 9090
+
+# Create directories for staging
+RUN mkdir -p /app/logs /app/uploads /app/tmp
+
+# Set permissions
+RUN chown -R bun:bikedreams /app
+
+# Switch to non-root user
+USER bun
+
+# Health check for staging
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Default command for staging
+CMD ["bun", "run", "start:staging"]
+
+# ==============================================
+# Production Stage
+# ==============================================
+FROM base as production
+
+# Set production environment
+ENV NODE_ENV=production
+ENV LOG_LEVEL=warn
+ENV ENABLE_DEBUG=false
+ENV ENABLE_SWAGGER=false
+ENV ENABLE_METRICS=true
+
+# Build the application for production
+RUN bun run build:prod
+
+# Install only production dependencies
+RUN bun install --frozen-lockfile --production
+
+# Remove development files
+RUN rm -rf /app/src /app/tsconfig*.json /app/prisma /app/node_modules/.cache
+
+# Expose ports
+EXPOSE 3001
+
+# Create directories for production
+RUN mkdir -p /app/logs /app/uploads /app/tmp
+
+# Set permissions
+RUN chown -R bun:bikedreams /app
+
+# Switch to non-root user
+USER bun
+
+# Health check for production
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Default command for production
+CMD ["bun", "run", "start:prod"]
+
+# ==============================================
+# Builder Stage - For building the application
+# ==============================================
+FROM base as builder
+
+# Set build environment
+ENV NODE_ENV=production
+
+# Build the application
+RUN bun run build:prod
+
+# ==============================================
+# Final Production Stage - Minimal image
+# ==============================================
+FROM oven/bun:1.1-alpine as final
+
+# Install only essential packages
 RUN apk update && apk upgrade && apk add --no-cache \
     dumb-init \
     curl \
     ca-certificates \
-    && rm -rf /var/cache/apk/* \
-    && addgroup --system --gid 1001 bikedreams \
-    && adduser --system --uid 1001 --ingroup bikedreams bun
+    tzdata \
+    && rm -rf /var/cache/apk/*
 
+# Set working directory
 WORKDIR /app
 
-# Copy from builder stage
-COPY --from=builder --chown=bun:bikedreams /app/node_modules ./node_modules
-COPY --from=builder --chown=bun:bikedreams /app/src ./src
-COPY --from=builder --chown=bun:bikedreams /app/prisma ./prisma
-COPY --from=builder --chown=bun:bikedreams /app/package.json ./
-COPY --from=builder --chown=bun:bikedreams /app/tsconfig.json ./
+# Create non-root user
+RUN addgroup --system --gid 1001 bikedreams \
+    && adduser --system --uid 1001 --ingroup bikedreams bun
 
-# Create required directories with proper permissions
-RUN mkdir -p /app/uploads /app/logs /app/logs/security && \
-    chown -R bun:bikedreams /app/uploads /app/logs && \
-    chmod 755 /app/uploads /app/logs && \
-    chmod 750 /app/logs/security
+# Copy built application from builder stage
+COPY --from=builder --chown=bun:bikedreams /app/dist /app/dist
+COPY --from=builder --chown=bun:bikedreams /app/node_modules /app/node_modules
+COPY --from=builder --chown=bun:bikedreams /app/package.json /app/package.json
+COPY --from=builder --chown=bun:bikedreams /app/prisma /app/prisma
 
-# Set security-focused file permissions
-RUN find /app -type f -name "*.ts" -exec chmod 644 {} \; && \
-    find /app -type d -exec chmod 755 {} \;
-
-# Remove unnecessary files for security
-RUN rm -rf /tmp/* /var/tmp/* /root/.bun
-
-# Security: Run as non-root user
-USER bun
-
-# Set environment variables
+# Set production environment
 ENV NODE_ENV=production
-ENV PORT=3001
-ENV HOST=0.0.0.0
+ENV LOG_LEVEL=warn
+ENV ENABLE_DEBUG=false
+ENV ENABLE_SWAGGER=false
+ENV ENABLE_METRICS=true
 
-# Expose port
+# Expose ports
 EXPOSE 3001
 
-# Health check with better configuration
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Create directories
+RUN mkdir -p /app/logs /app/uploads /app/tmp
+
+# Set permissions
+RUN chown -R bun:bikedreams /app
+
+# Switch to non-root user
+USER bun
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3001/health || exit 1
 
-# Security labels
-LABEL maintainer="BikeDreams Team <dev@example.com>" \
-      version="1.0" \
-      description="BikeDreams Backend API - Production" \
-      security.scan="enabled"
-
-# Use dumb-init for proper signal handling
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start the application
-CMD ["bun", "run", "start"]
+# Default command
+CMD ["bun", "run", "start:prod"]

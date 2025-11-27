@@ -1,0 +1,275 @@
+// ==============================================
+// BikeDreams Backend - Prisma Production Schema
+// ==============================================
+// This file contains production-specific Prisma configurations
+// optimized for high performance and security.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==============================================
+// Production-Specific Models
+// ==============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  firstName String?
+  lastName  String?
+  avatar    String?
+  role      UserRole @default(USER)
+  isActive  Boolean  @default(true)
+  
+  // Production-specific fields
+  lastLoginAt DateTime?
+  loginCount Int @default(0)
+  lastActivityAt DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  posts     Post[]
+  comments  Comment[]
+  likes     Like[]
+  follows   Follow[] @relation("UserFollows")
+  followers Follow[] @relation("UserFollowers")
+  
+  @@map("users")
+  @@index([email])
+  @@index([username])
+  @@index([role])
+  @@index([isActive])
+  @@index([createdAt])
+  @@index([lastLoginAt])
+  @@index([lastActivityAt])
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  excerpt     String?
+  slug        String   @unique
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?
+  
+  // Production-specific fields
+  viewCount   Int @default(0)
+  likeCount   Int @default(0)
+  commentCount Int @default(0)
+  shareCount  Int @default(0)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  authorId    String
+  author      User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  likes       Like[]
+  tags        PostTag[]
+  categories  PostCategory[]
+  
+  @@map("posts")
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([viewCount])
+  @@index([likeCount])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  status    CommentStatus @default(PENDING)
+  
+  // Production-specific fields
+  likeCount Int @default(0)
+  isEdited  Boolean @default(false)
+  editedAt  DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  authorId  String
+  author    User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  likes     Like[]
+  
+  @@map("comments")
+  @@index([status])
+  @@index([postId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([likeCount])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String?
+  post      Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  @@map("likes")
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
+  @@index([userId])
+  @@index([postId])
+  @@index([commentId])
+}
+
+model Follow {
+  id        String   @id @default(cuid())
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  followerId String
+  follower   User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following  User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  @@map("follows")
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  color     String?
+  description String?
+  
+  // Production-specific fields
+  postCount Int @default(0)
+  isActive  Boolean @default(true)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  posts     PostTag[]
+  
+  @@map("tags")
+  @@index([slug])
+  @@index([name])
+  @@index([isActive])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  color       String?
+  
+  // Production-specific fields
+  postCount   Int @default(0)
+  isActive    Boolean @default(true)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  posts       PostCategory[]
+  
+  @@map("categories")
+  @@index([slug])
+  @@index([name])
+  @@index([isActive])
+}
+
+model PostTag {
+  id     String @id @default(cuid())
+  postId String
+  tagId  String
+  
+  // Relations
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@map("post_tags")
+  @@unique([postId, tagId])
+  @@index([postId])
+  @@index([tagId])
+}
+
+model PostCategory {
+  id         String @id @default(cuid())
+  postId     String
+  categoryId String
+  
+  // Relations
+  post       Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  @@map("post_categories")
+  @@unique([postId, categoryId])
+  @@index([postId])
+  @@index([categoryId])
+}
+
+// ==============================================
+// Production-Specific Enums
+// ==============================================
+
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+  EDITOR
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SPAM
+}
+
+// ==============================================
+// Production-Specific Indexes
+// ==============================================
+
+// These indexes are optimized for production queries
+// and high-performance scenarios

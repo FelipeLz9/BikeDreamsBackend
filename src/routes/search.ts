@@ -1,5 +1,7 @@
 // backend/routes/search.ts
 import { Elysia } from "elysia";
+import { normalizeEvent } from "../utils/normalizers";
+import { normalizeNews } from "../utils/normalizers";
 
 const API_URL = "http://localhost:4000";
 
@@ -21,12 +23,16 @@ export const searchRoutes = new Elysia().get("/search", async ({ query }) => {
       fetchData("/news")
     ])
 
+    // Normalizamos los datos para asegurar formato consistente
+    const normalizedEvents = events.map(normalizeEvent);
+    const normalizedNews = news.map(normalizeNews);
+
     // Filtramos según el query
-    const filteredEvents = events.filter((e: any) =>
+    const filteredEvents = normalizedEvents.filter((e: any) =>
         e.title?.toLowerCase().includes(searchQuery)
     );
 
-    const filteredNews = news.filter((n: any) =>
+    const filteredNews = normalizedNews.filter((n: any) =>
         n.title?.toLowerCase().includes(searchQuery)
     );
 

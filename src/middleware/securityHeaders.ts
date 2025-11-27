@@ -254,8 +254,8 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
       const { set, request } = context;
       const headersToApply: Record<string, string> = {};
 
-      // HSTS (HTTP Strict Transport Security)
-      if (config.hsts && request.url.startsWith('https://')) {
+      // HSTS (HTTP Strict Transport Security) - Solo en producción
+      if (config.hsts && process.env.NODE_ENV === 'production' && request.url.startsWith('https://')) {
         let hstsValue = `max-age=${config.hsts.maxAge || 31536000}`;
         if (config.hsts.includeSubDomains) hstsValue += '; includeSubDomains';
         if (config.hsts.preload) hstsValue += '; preload';
@@ -327,8 +327,8 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
         headersToApply['Permissions-Policy'] = permissionsDirectives;
       }
 
-      // Expect-CT
-      if (config.expectCt && request.url.startsWith('https://')) {
+      // Expect-CT - Solo en producción
+      if (config.expectCt && process.env.NODE_ENV === 'production' && request.url.startsWith('https://')) {
         let expectCtValue = `max-age=${config.expectCt.maxAge || 86400}`;
         if (config.expectCt.enforce) expectCtValue += ', enforce';
         if (config.expectCt.reportUri) expectCtValue += `, report-uri="${config.expectCt.reportUri}"`;
@@ -361,7 +361,7 @@ export function securityHeaders(customConfig?: Partial<SecurityHeadersConfig>) {
 
       // Security headers adicionales
       headersToApply['X-Permitted-Cross-Domain-Policies'] = 'none';
-      headersToApply['Clear-Site-Data'] = '"cache", "cookies", "storage", "executionContexts"';
+      headersToApply['Clear-Site-Data'] = '"cache", "cookies", "storage"';
 
       // Log security headers application
       SecurityLogger.logSecurityEvent({
@@ -484,9 +484,16 @@ export function securityReports() {
  * Plugin combinado de todos los headers de seguridad
  */
 export function fullSecurityHeaders(config?: Partial<SecurityHeadersConfig>) {
+  // Usar configuración por defecto según el entorno si no se proporciona configuración personalizada
+  const defaultConfig = process.env.NODE_ENV === 'development' 
+    ? developmentConfig 
+    : productionConfig;
+  
+  const finalConfig = config ? { ...defaultConfig, ...config } : defaultConfig;
+  
   return new Elysia({ name: 'full-security-headers' })
-    .use(securityHeaders(config))
-    .use(advancedCORS(config?.cors))
+    .use(securityHeaders(finalConfig))
+    .use(advancedCORS(finalConfig?.cors))
     .use(securityReports());
 }
 

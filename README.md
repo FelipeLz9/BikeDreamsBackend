@@ -4,6 +4,38 @@ Backend API para la plataforma BikeDreams construido con Elysia.js, Bun y Prisma
 
 ## 🚀 Despliegue en Producción
 
+### 🌟 Despliegue en AWS EC2 (Recomendado)
+
+**Despliegue automático con GitHub Actions a AWS EC2**
+
+Para desplegar automáticamente en AWS EC2, sigue estas guías:
+
+- **[📖 Guía Rápida (5 minutos)](./QUICK-START-EC2.md)** - Inicio rápido
+- **[📚 Guía Completa de AWS EC2](./AWS-EC2-DEPLOYMENT.md)** - Documentación detallada
+- **[🔐 Configuración de GitHub Secrets](./GITHUB-SECRETS-SETUP.md)** - Setup de CI/CD
+
+**Características del despliegue EC2:**
+- ✅ Despliegue automático con GitHub Actions
+- ✅ Rollback automático en caso de fallo
+- ✅ Health checks integrados
+- ✅ Backups automáticos antes de cada despliegue
+- ✅ Sin necesidad de dominio (funciona con IP)
+- ✅ Docker Compose para gestión de servicios
+
+**Inicio rápido:**
+```bash
+# 1. Ejecutar script de setup en EC2
+sudo bash scripts/ec2-setup.sh
+
+# 2. Configurar GitHub Secrets (ver guía)
+# 3. Push a main branch
+git push origin main
+
+# ¡Listo! El despliegue es automático
+```
+
+---
+
 ### Requisitos Previos
 
 - Docker y Docker Compose instalados

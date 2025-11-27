@@ -1,6 +1,10 @@
 import { Elysia } from 'elysia';
 import { cors } from "@elysiajs/cors";
 import { authRoutes } from './routes/auth';
+import { devAuthRoutes } from './routes/devAuth';
+import { simpleAuthRoutes } from './routes/simpleAuth';
+import { debugAuthRoutes } from './routes/debugAuth';
+import { testAuthRoutes } from './routes/testAuth';
 import { userRoutes } from './routes/users';
 import { eventRoutes } from './routes/events';
 import { forumRoutes } from './routes/forum';
@@ -11,6 +15,7 @@ import { adminRoutes } from './routes/admin';
 import { errorHandler } from './middleware/errorHandler';
 import { swagger } from '@elysiajs/swagger';
 import { fullSecurityHeaders } from './middleware/securityHeaders';
+import { basicSecurityMiddleware, basicCorsMiddleware } from './middleware/basicSecurity';
 import { searchRoutes } from "./routes/search";
 import { syncRoutes } from "./routes/sync";
 import { syncDebugRoutes } from "./routes/sync-debug";
@@ -18,6 +23,8 @@ import { syncManagementRoutes } from "./routes/sync-management";
 import { autoSyncRoutes } from "./routes/auto-sync";
 import { optimizedEventRoutes } from "./routes/optimized-events";
 import { testRoutes } from "./routes/test";
+import { testSimpleRoutes } from "./routes/test-simple";
+import { testBasicRoutes } from "./routes/test-basic";
 import { rbacRoutes } from "./routes/rbac";
 import { 
     rateLimiterMiddleware, 
@@ -35,30 +42,39 @@ const HOST = process.env.HOST || '0.0.0.0';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
-// Configure CORS for production
+// Configure CORS based on environment
 const corsOptions = {
-    origin: NODE_ENV === 'production' ? CORS_ORIGIN : true,
-    credentials: true
+    origin: NODE_ENV === 'production' 
+        ? (CORS_ORIGIN === '*' ? false : CORS_ORIGIN?.split(',')) 
+        : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['X-Total-Count'],
+    optionsSuccessStatus: 200
 };
 
 const app = new Elysia()
     // Only use Swagger in development
     .use(NODE_ENV === 'development' ? swagger() : (app: any) => app)
+    // CORS básico para desarrollo
+    .use(NODE_ENV === 'development' ? basicCorsMiddleware() : cors(corsOptions))
     // Security middlewares - Order matters!
-    .use(fullSecurityHeaders()) // Aplicar headers de seguridad primero
+    .use(NODE_ENV === 'development' ? basicSecurityMiddleware() : fullSecurityHeaders())
     .use(errorHandler)
-    .use(ipBlockingMiddleware)
-    .use(suspiciousActivityDetection)
-    .use(rateLimiterMiddleware)
-    // Remover cors básico ya que fullSecurityHeaders incluye CORS avanzado
-    // .use(cors(corsOptions))
+    // En desarrollo, deshabilitar middlewares de seguridad estrictos
+    .use(NODE_ENV === 'development' ? (app: any) => app : ipBlockingMiddleware)
+    .use(NODE_ENV === 'development' ? (app: any) => app : suspiciousActivityDetection)
+    .use(NODE_ENV === 'development' ? (app: any) => app : rateLimiterMiddleware)
     .use(authRoutes)
+    .use(debugAuthRoutes)
+    .use(testAuthRoutes)
     .use(userRoutes)
     .use(eventRoutes)
     .use(forumRoutes)
     .use(newsRoutes)
     .use(riderRoutes)
-    .use(donationRoutes)
+    // .use(donationRoutes) // Comentado temporalmente para debugging
     .use(adminRoutes)
     .use(searchRoutes)
     .use(syncRoutes)
@@ -67,6 +83,8 @@ const app = new Elysia()
     .use(autoSyncRoutes)
     .use(optimizedEventRoutes)
     .use(testRoutes)
+    .use(testSimpleRoutes)
+    .use(testBasicRoutes)
     .use(rbacRoutes)
     .get('/', () => ({
         message: '🚀 BikeDreams API funcionando!',

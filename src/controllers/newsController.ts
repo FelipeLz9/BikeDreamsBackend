@@ -42,46 +42,10 @@ async function fetchNewsSource(endpoint: string, sourceName: string) {
 
 export async function getNews() {
   try {
-    console.log('🚀 Fetching news from database');
+    console.log('🚀 Fetching news from scraper API');
     
-    // First, try to get news from the database
-    const dbNews = await prisma.news.findMany({
-      orderBy: [
-        { published_at: 'desc' },
-        { date: 'desc' },
-        { createdAt: 'desc' }
-      ]
-    });
-    
-    console.log(`🗄️ Found ${dbNews.length} news articles in database`);
-    
-    // If we have news in the database, use them
-    if (dbNews.length > 0) {
-      const usabmxCount = dbNews.filter(n => n.source === 'USABMX').length;
-      const uciCount = dbNews.filter(n => n.source === 'UCI').length;
-      
-      return {
-        total: dbNews.length,
-        news: dbNews.map(newsItem => ({
-          // Map database news to normalized format
-          id: newsItem.external_id || newsItem.uuid_id || newsItem.id,
-          title: newsItem.title,
-          date: newsItem.published_at || newsItem.date || newsItem.createdAt,
-          published_at: newsItem.published_at,
-          category: newsItem.category,
-          url: newsItem.url,
-          author: newsItem.author,
-          summary: newsItem.summary,
-          excerpt: newsItem.excerpt,
-          source: newsItem.source
-        })),
-        sources: { usabmx: usabmxCount, uci: uciCount },
-        dataSource: 'database'
-      };
-    }
-    
-    // Fallback to scraper API if no data in database
-    console.log('📡 No news in database, falling back to scraper API');
+    // Use scraper API directly (skip database for now)
+    console.log('📡 Fetching news from scraper API');
     
     const [usabmxNews, uciNews] = await Promise.all([
       fetchNewsSource('/news/usabmx/', 'USABMX'),

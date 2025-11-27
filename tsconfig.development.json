@@ -1,0 +1,118 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    /* ==============================================
+     * BikeDreams Backend - Development TypeScript Configuration
+     * ==============================================
+     * Optimized for development with debugging and hot reloading.
+     */
+
+    /* Development-specific overrides */
+    "target": "ES2022",                                   /* Modern target for development */
+    "module": "ESNext",                                   /* Use ESNext modules for better development experience */
+    "moduleResolution": "Node",                           /* Use Node module resolution for development */
+
+    /* Emit - Development Optimized */
+    "declaration": false,                                 /* Skip declaration files in development */
+    "declarationMap": false,                              /* Skip declaration maps in development */
+    "sourceMap": true,                                    /* Generate source maps for debugging */
+    "inlineSourceMap": false,                             /* Use separate source map files */
+    "removeComments": false,                              /* Keep comments for better debugging */
+    "noEmit": false,                                      /* Emit files for development */
+
+    /* Type Checking - Development Relaxed */
+    "strict": true,                                       /* Keep strict mode for type safety */
+    "noImplicitAny": true,                                /* Error on implicit any */
+    "strictNullChecks": true,                             /* Enable null checks */
+    "strictFunctionTypes": true,                          /* Enable strict function types */
+    "noImplicitReturns": true,                            /* Error on missing returns */
+    "noFallthroughCasesInSwitch": true,                   /* Error on switch fallthrough */
+    "noUncheckedIndexedAccess": false,                    /* Relaxed for development speed */
+    "exactOptionalPropertyTypes": false,                  /* Relaxed for development flexibility */
+    "noUnusedLocals": false,                              /* Allow unused locals in development */
+    "noUnusedParameters": false,                          /* Allow unused parameters in development */
+    "allowUnreachableCode": true,                         /* Allow unreachable code for debugging */
+
+    /* Development Features */
+    "allowJs": true,                                      /* Allow JavaScript files for mixed projects */
+    "checkJs": false,                                     /* Don't type check JS files for speed */
+    "skipLibCheck": true,                                 /* Skip lib checking for faster compilation */
+
+    /* Output - Development */
+    "outDir": "./dist/dev",                               /* Development output directory */
+    "rootDir": "./src",                                   /* Source root directory */
+    "declarationDir": "./dist/dev/types",                 /* Development declaration directory */
+
+    /* Incremental Compilation - Development */
+    "incremental": true,                                  /* Enable incremental compilation */
+    "tsBuildInfoFile": "./dist/dev/.tsbuildinfo",        /* Development build info file */
+    "composite": false,                                   /* Not a composite project */
+
+    /* Development Tools */
+    "preserveWatchOutput": true,                          /* Preserve watch output for better UX */
+    "assumeChangesOnlyAffectDirectDependencies": true,    /* Optimize watch mode */
+
+    /* Path Mapping - Development */
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/types/*": ["src/types/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/services/*": ["src/services/*"],
+      "@/controllers/*": ["src/controllers/*"],
+      "@/middleware/*": ["src/middleware/*"],
+      "@/routes/*": ["src/routes/*"],
+      "@/schemas/*": ["src/schemas/*"],
+      "@/tests/*": ["src/tests/*"],
+      "@/config/*": ["src/config/*"]                      /* Development config path */
+    }
+  },
+
+  /* Include - Development */
+  "include": [
+    "src/**/*",                                           /* Include all source files */
+    "src/**/*.ts",                                        /* Include TypeScript files */
+    "src/**/*.tsx",                                       /* Include TypeScript React files */
+    "src/**/*.js",                                        /* Include JavaScript files */
+    "src/**/*.jsx",                                       /* Include JavaScript React files */
+    "src/**/*.json",                                      /* Include JSON files */
+    "src/**/*.mjs"                                        /* Include ES modules */
+  ],
+
+  /* Exclude - Development */
+  "exclude": [
+    "node_modules",                                       /* Exclude node_modules */
+    "dist",                                               /* Exclude build output */
+    "build",                                              /* Exclude build output */
+    "coverage",                                           /* Exclude coverage reports */
+    "**/*.test.ts",                                       /* Exclude test files from build */
+    "**/*.spec.ts",                                       /* Exclude spec files from build */
+    "**/*.test.js",                                       /* Exclude test JS files */
+    "**/*.spec.js",                                       /* Exclude spec JS files */
+    "**/__tests__/**",                                    /* Exclude test directories */
+    "**/tests/**",                                        /* Exclude test directories */
+    "**/*.d.ts",                                          /* Exclude declaration files */
+    "**/node_modules/**"                                  /* Exclude nested node_modules */
+  ],
+
+  /* Development-specific settings */
+  "ts-node": {
+    "esm": true,                                          /* Enable ESM support */
+    "experimentalSpecifierResolution": "node",            /* Use Node.js specifier resolution */
+    "transpileOnly": true,                                /* Skip type checking for faster startup */
+    "files": true,                                        /* Include files in compilation */
+    "compilerOptions": {
+      "module": "ESNext",                                 /* Use ESNext for ts-node */
+      "target": "ES2022"                                  /* Modern target for ts-node */
+    }
+  },
+
+  /* Watch Options - Development */
+  "watchOptions": {
+    "watchFile": "useFsEvents",                           /* Use file system events */
+    "watchDirectory": "useFsEvents",                      /* Use file system events for directories */
+    "fallbackPolling": "dynamic",                         /* Use dynamic polling as fallback */
+    "synchronousWatchDirectory": true,                    /* Synchronous directory watching */
+    "excludeDirectories": ["**/node_modules", "**/dist", "**/build", "**/coverage"]
+  }
+}

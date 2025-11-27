@@ -1,0 +1,275 @@
+// ==============================================
+// BikeDreams Backend - Prisma Development Schema
+// ==============================================
+// This file contains development-specific Prisma configurations
+// optimized for local development and debugging.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+  previewFeatures = ["tracing"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==============================================
+// Development-Specific Models
+// ==============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  firstName String?
+  lastName  String?
+  avatar    String?
+  role      UserRole @default(USER)
+  isActive  Boolean  @default(true)
+  
+  // Development-specific fields
+  debugInfo Json?
+  lastLoginAt DateTime?
+  loginCount Int @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  posts     Post[]
+  comments  Comment[]
+  likes     Like[]
+  follows   Follow[] @relation("UserFollows")
+  followers Follow[] @relation("UserFollowers")
+  
+  @@map("users")
+  @@index([email])
+  @@index([username])
+  @@index([role])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  excerpt     String?
+  slug        String   @unique
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?
+  
+  // Development-specific fields
+  debugInfo   Json?
+  viewCount   Int @default(0)
+  likeCount   Int @default(0)
+  commentCount Int @default(0)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  authorId    String
+  author      User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    Comment[]
+  likes       Like[]
+  tags        PostTag[]
+  categories  PostCategory[]
+  
+  @@map("posts")
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  status    CommentStatus @default(PENDING)
+  
+  // Development-specific fields
+  debugInfo Json?
+  likeCount Int @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  authorId  String
+  author    User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  likes     Like[]
+  
+  @@map("comments")
+  @@index([status])
+  @@index([postId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  
+  // Development-specific fields
+  debugInfo Json?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String?
+  post      Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  
+  @@map("likes")
+  @@unique([userId, postId])
+  @@unique([userId, commentId])
+  @@index([userId])
+  @@index([postId])
+  @@index([commentId])
+}
+
+model Follow {
+  id        String   @id @default(cuid())
+  
+  // Development-specific fields
+  debugInfo Json?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  // Relations
+  followerId String
+  follower   User @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following  User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  @@map("follows")
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  color     String?
+  description String?
+  
+  // Development-specific fields
+  debugInfo Json?
+  postCount Int @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  posts     PostTag[]
+  
+  @@map("tags")
+  @@index([slug])
+  @@index([name])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  color       String?
+  
+  // Development-specific fields
+  debugInfo   Json?
+  postCount   Int @default(0)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  posts       PostCategory[]
+  
+  @@map("categories")
+  @@index([slug])
+  @@index([name])
+}
+
+model PostTag {
+  id     String @id @default(cuid())
+  postId String
+  tagId  String
+  
+  // Relations
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@map("post_tags")
+  @@unique([postId, tagId])
+  @@index([postId])
+  @@index([tagId])
+}
+
+model PostCategory {
+  id         String @id @default(cuid())
+  postId     String
+  categoryId String
+  
+  // Relations
+  post       Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  @@map("post_categories")
+  @@unique([postId, categoryId])
+  @@index([postId])
+  @@index([categoryId])
+}
+
+// ==============================================
+// Development-Specific Enums
+// ==============================================
+
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+  EDITOR
+  DEVELOPER
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SPAM
+}
+
+// ==============================================
+// Development-Specific Indexes
+// ==============================================
+
+// These indexes are optimized for development queries
+// and debugging scenarios
