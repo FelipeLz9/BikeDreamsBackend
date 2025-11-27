@@ -320,8 +320,8 @@ install_nodejs() {
         return 0
     fi
     
-    # Install Node.js 18.x
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    # Install Node.js 20.x
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     
     if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
         apt-get install -y nodejs
