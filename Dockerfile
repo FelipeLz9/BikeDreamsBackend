@@ -22,9 +22,9 @@ RUN apk update && apk upgrade && apk add --no-cache \
 # Set working directory
 WORKDIR /app
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 bikedreams \
-    && adduser --system --uid 1001 --ingroup bikedreams bun
+# Use existing bun user (already exists in base image)
+# Just create the bikedreams group if needed
+RUN addgroup --system bikedreams 2>/dev/null || true
 
 # Copy package files first (better caching)
 COPY --chown=bun:bikedreams package.json bun.lockb ./
@@ -183,9 +183,8 @@ RUN apk update && apk upgrade && apk add --no-cache \
 # Set working directory
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup --system --gid 1001 bikedreams \
-    && adduser --system --uid 1001 --ingroup bikedreams bun
+# Use existing bun user
+RUN addgroup --system bikedreams 2>/dev/null || true
 
 # Copy built application from builder stage
 COPY --from=builder --chown=bun:bikedreams /app/dist /app/dist
