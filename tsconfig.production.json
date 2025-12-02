@@ -7,133 +7,140 @@
      * Optimized for production with maximum performance,
      * security, and minimal bundle size.
      */
-
     /* Production-specific overrides */
-    "target": "ES2018",                                   /* Older target for maximum compatibility */
-    "module": "NodeNext",                                 /* Use Node.js module system */
-    "moduleResolution": "NodeNext",                       /* Use Node.js module resolution */
-
+    "target": "ES2018", /* Older target for maximum compatibility */
+    "module": "NodeNext", /* Use Node.js module system */
+    "moduleResolution": "NodeNext", /* Use Node.js module resolution */
     /* Emit - Production Optimized */
-    "declaration": true,                                  /* Generate declaration files for production */
-    "declarationMap": false,                              /* Skip declaration maps for smaller bundle */
-    "sourceMap": false,                                   /* Skip source maps for production */
-    "inlineSourceMap": false,                             /* No inline source maps */
-    "removeComments": true,                               /* Remove all comments for smaller bundle */
-    "noEmit": false,                                      /* Emit files for production */
-
+    "declaration": true, /* Generate declaration files for production */
+    "declarationMap": false, /* Skip declaration maps for smaller bundle */
+    "sourceMap": false, /* Skip source maps for production */
+    "inlineSourceMap": false, /* No inline source maps */
+    "removeComments": true, /* Remove all comments for smaller bundle */
+    "noEmit": false, /* Emit files for production */
     /* Type Checking - Production Maximum Strict */
-    "strict": true,                                       /* Enable all strict mode options */
-    "noImplicitAny": true,                                /* Error on implicit any */
-    "strictNullChecks": true,                             /* Enable strict null checks */
-    "strictFunctionTypes": true,                          /* Enable strict function types */
-    "strictBindCallApply": true,                          /* Enable strict bind, call, apply */
-    "strictPropertyInitialization": true,                 /* Enable strict property initialization */
-    "noImplicitThis": true,                               /* Error when 'this' has type 'any' */
-    "useUnknownInCatchVariables": true,                   /* Use 'unknown' for catch variables */
-    "alwaysStrict": true,                                 /* Always emit 'use strict' */
-    "noImplicitReturns": true,                            /* Error on missing returns */
-    "noFallthroughCasesInSwitch": true,                   /* Error on switch fallthrough */
-    "noUncheckedIndexedAccess": true,                     /* Enable unchecked index access checks */
-    "exactOptionalPropertyTypes": true,                   /* Enable exact optional property types */
-    "noUnusedLocals": true,                               /* Error on unused locals */
-    "noUnusedParameters": true,                           /* Error on unused parameters */
-    "allowUnreachableCode": false,                        /* Error on unreachable code */
-    "noImplicitOverride": true,                           /* Require 'override' modifier */
-
+    "strict": true, /* Enable all strict mode options */
+    "noImplicitAny": true, /* Error on implicit any */
+    "strictNullChecks": true, /* Enable strict null checks */
+    "strictFunctionTypes": true, /* Enable strict function types */
+    "strictBindCallApply": true, /* Enable strict bind, call, apply */
+    "strictPropertyInitialization": true, /* Enable strict property initialization */
+    "noImplicitThis": true, /* Error when 'this' has type 'any' */
+    "useUnknownInCatchVariables": true, /* Use 'unknown' for catch variables */
+    "alwaysStrict": true, /* Always emit 'use strict' */
+    "noImplicitReturns": true, /* Error on missing returns */
+    "noFallthroughCasesInSwitch": true, /* Error on switch fallthrough */
+    "noUncheckedIndexedAccess": true, /* Enable unchecked index access checks */
+    "exactOptionalPropertyTypes": false, /* Disabled for production compatibility */
+    "noUnusedLocals": false, /* Disabled for production build */
+    "noUnusedParameters": false, /* Disabled for production build */
+    "allowUnreachableCode": false, /* Error on unreachable code */
+    "noImplicitOverride": true, /* Require 'override' modifier */
     /* Production Features */
-    "allowJs": false,                                     /* Don't allow JavaScript files */
-    "checkJs": false,                                     /* Don't type check JS files */
-    "skipLibCheck": true,                                 /* Skip lib checking for faster compilation */
-
+    "allowJs": false, /* Don't allow JavaScript files */
+    "checkJs": false, /* Don't type check JS files */
+    "skipLibCheck": true, /* Skip lib checking for faster compilation */
     /* Output - Production */
-    "outDir": "./dist/production",                        /* Production output directory */
-    "rootDir": "./src",                                   /* Source root directory */
-    "declarationDir": "./dist/production/types",          /* Production declaration directory */
-
+    "outDir": "./dist/production", /* Production output directory */
+    "rootDir": "./src", /* Source root directory */
+    "declarationDir": "./dist/production/types", /* Production declaration directory */
     /* Incremental Compilation - Production */
-    "incremental": true,                                  /* Enable incremental compilation */
-    "tsBuildInfoFile": "./dist/production/.tsbuildinfo",  /* Production build info file */
-    "composite": false,                                   /* Not a composite project */
-
+    "incremental": true, /* Enable incremental compilation */
+    "tsBuildInfoFile": "./dist/production/.tsbuildinfo", /* Production build info file */
+    "composite": false, /* Not a composite project */
     /* Production Optimizations */
-    "importHelpers": true,                                /* Use tslib helpers for better tree-shaking */
-    "downlevelIteration": true,                           /* Enable downlevel iteration */
-    "preserveConstEnums": false,                          /* Don't preserve const enums for smaller bundle */
-
+    "importHelpers": true, /* Use tslib helpers for better tree-shaking */
+    "downlevelIteration": true, /* Enable downlevel iteration */
+    "preserveConstEnums": true, /* Must be true when isolatedModules is enabled */
     /* Path Mapping - Production */
     "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"],
-      "@/types/*": ["src/types/*"],
-      "@/utils/*": ["src/utils/*"],
-      "@/services/*": ["src/services/*"],
-      "@/controllers/*": ["src/controllers/*"],
-      "@/middleware/*": ["src/middleware/*"],
-      "@/routes/*": ["src/routes/*"],
-      "@/schemas/*": ["src/schemas/*"],
-      "@/config/*": ["src/config/*"]                      /* Production config path */
+      "@/*": [
+        "src/*"
+      ],
+      "@/types/*": [
+        "src/types/*"
+      ],
+      "@/utils/*": [
+        "src/utils/*"
+      ],
+      "@/services/*": [
+        "src/services/*"
+      ],
+      "@/controllers/*": [
+        "src/controllers/*"
+      ],
+      "@/middleware/*": [
+        "src/middleware/*"
+      ],
+      "@/routes/*": [
+        "src/routes/*"
+      ],
+      "@/schemas/*": [
+        "src/schemas/*"
+      ],
+      "@/config/*": [
+        "src/config/*"
+      ] /* Production config path */
     }
   },
-
   /* Include - Production (Minimal) */
   "include": [
-    "src/**/*.ts",                                        /* Include only TypeScript files */
-    "src/**/*.tsx",                                       /* Include TypeScript React files */
-    "src/**/*.json"                                       /* Include JSON files */
+    "src/**/*.ts", /* Include only TypeScript files */
+    "src/**/*.tsx", /* Include TypeScript React files */
+    "src/**/*.json" /* Include JSON files */
   ],
-
   /* Exclude - Production (Comprehensive) */
   "exclude": [
-    "node_modules",                                       /* Exclude node_modules */
-    "dist",                                               /* Exclude build output */
-    "build",                                              /* Exclude build output */
-    "coverage",                                           /* Exclude coverage reports */
-    "**/*.test.ts",                                       /* Exclude test files */
-    "**/*.spec.ts",                                       /* Exclude spec files */
-    "**/*.test.js",                                       /* Exclude test JS files */
-    "**/*.spec.js",                                       /* Exclude spec JS files */
-    "**/__tests__/**",                                    /* Exclude test directories */
-    "**/tests/**",                                        /* Exclude test directories */
-    "**/*.d.ts",                                          /* Exclude declaration files */
-    "**/node_modules/**",                                 /* Exclude nested node_modules */
-    "src/**/*.js",                                        /* Exclude JavaScript files */
-    "src/**/*.jsx",                                       /* Exclude JavaScript React files */
-    "src/**/*.mjs",                                       /* Exclude ES modules */
-    "src/tests/**",                                       /* Exclude test source files */
-    "src/**/*.test.*",                                    /* Exclude test files */
-    "src/**/*.spec.*",                                    /* Exclude spec files */
-    "src/**/__tests__/**",                                /* Exclude test directories */
-    "src/**/__mocks__/**",                                /* Exclude mock directories */
-    "src/**/fixtures/**",                                 /* Exclude fixture directories */
-    "src/**/stories/**",                                  /* Exclude story directories */
-    "src/**/*.stories.*",                                 /* Exclude story files */
-    "src/**/*.config.*",                                  /* Exclude config files */
-    "src/**/webpack.*",                                   /* Exclude webpack files */
-    "src/**/rollup.*",                                    /* Exclude rollup files */
-    "src/**/vite.*",                                      /* Exclude vite files */
-    "src/**/jest.*",                                      /* Exclude jest files */
-    "src/**/cypress/**",                                  /* Exclude cypress files */
-    "src/**/playwright/**",                               /* Exclude playwright files */
-    "src/**/e2e/**",                                      /* Exclude e2e files */
-    "src/**/integration/**",                              /* Exclude integration files */
-    "src/**/unit/**",                                     /* Exclude unit test files */
-    "src/**/manual/**",                                   /* Exclude manual test files */
-    "src/**/debug/**",                                    /* Exclude debug files */
-    "src/**/dev/**",                                      /* Exclude dev files */
-    "src/**/staging/**",                                  /* Exclude staging files */
-    "src/**/temp/**",                                     /* Exclude temp files */
-    "src/**/tmp/**"                                       /* Exclude tmp files */
+    "node_modules", /* Exclude node_modules */
+    "dist", /* Exclude build output */
+    "build", /* Exclude build output */
+    "coverage", /* Exclude coverage reports */
+    "**/*.test.ts", /* Exclude test files */
+    "**/*.spec.ts", /* Exclude spec files */
+    "**/*.test.js", /* Exclude test JS files */
+    "**/*.spec.js", /* Exclude spec JS files */
+    "**/__tests__/**", /* Exclude test directories */
+    "**/tests/**", /* Exclude test directories */
+    "**/*.d.ts", /* Exclude declaration files */
+    "**/node_modules/**", /* Exclude nested node_modules */
+    "src/**/*.js", /* Exclude JavaScript files */
+    "src/**/*.jsx", /* Exclude JavaScript React files */
+    "src/**/*.mjs", /* Exclude ES modules */
+    "src/tests/**", /* Exclude test source files */
+    "src/**/*.test.*", /* Exclude test files */
+    "src/**/*.spec.*", /* Exclude spec files */
+    "src/**/__tests__/**", /* Exclude test directories */
+    "src/**/__mocks__/**", /* Exclude mock directories */
+    "src/**/fixtures/**", /* Exclude fixture directories */
+    "src/**/stories/**", /* Exclude story directories */
+    "src/**/*.stories.*", /* Exclude story files */
+    "src/**/*.config.*", /* Exclude config files */
+    "src/**/webpack.*", /* Exclude webpack files */
+    "src/**/rollup.*", /* Exclude rollup files */
+    "src/**/vite.*", /* Exclude vite files */
+    "src/**/jest.*", /* Exclude jest files */
+    "src/**/cypress/**", /* Exclude cypress files */
+    "src/**/playwright/**", /* Exclude playwright files */
+    "src/**/e2e/**", /* Exclude e2e files */
+    "src/**/integration/**", /* Exclude integration files */
+    "src/**/unit/**", /* Exclude unit test files */
+    "src/**/manual/**", /* Exclude manual test files */
+    "src/**/debug/**", /* Exclude debug files */
+    "src/**/dev/**", /* Exclude dev files */
+    "src/**/staging/**", /* Exclude staging files */
+    "src/**/temp/**", /* Exclude temp files */
+    "src/**/tmp/**" /* Exclude tmp files */
   ],
-
   /* Production-specific settings */
   "ts-node": {
-    "esm": true,                                          /* Enable ESM support */
-    "experimentalSpecifierResolution": "node",            /* Use Node.js specifier resolution */
-    "transpileOnly": false,                               /* Enable full type checking for production */
-    "files": true,                                        /* Include files in compilation */
+    "esm": true, /* Enable ESM support */
+    "experimentalSpecifierResolution": "node", /* Use Node.js specifier resolution */
+    "transpileOnly": false, /* Enable full type checking for production */
+    "files": true, /* Include files in compilation */
     "compilerOptions": {
-      "module": "NodeNext",                               /* Use NodeNext for ts-node */
-      "target": "ES2018"                                  /* Production target for ts-node */
+      "module": "NodeNext", /* Use NodeNext for ts-node */
+      "target": "ES2018" /* Production target for ts-node */
     }
   }
 }
