@@ -30,6 +30,7 @@
     "start:staging": "bun run --env-file=.env.staging src/index.ts",
     "start:test": "bun run --env-file=.env.test src/index.ts",
     "start:prod": "NODE_ENV=production bun run --env-file=.env.production src/index.ts",
+    "start:prod:direct": "bun run src/index.ts",
     "start:debug": "bun run --env-file=.env.development --inspect src/index.ts",
     "start:cluster": "NODE_ENV=production node -r ts-node/register dist/production/index.js",
     "start:pm2": "pm2 start ecosystem.config.js",

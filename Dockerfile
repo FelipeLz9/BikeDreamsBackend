@@ -128,14 +128,14 @@ ENV ENABLE_DEBUG=false
 ENV ENABLE_SWAGGER=false
 ENV ENABLE_METRICS=true
 
-# Build the application for production
-RUN bun run build:prod
+# Skip build, Bun can run TypeScript directly
+RUN echo "Using Bun's native TypeScript support - no compilation needed"
 
 # Install only production dependencies
 RUN bun install --frozen-lockfile --production
 
-# Remove development files
-RUN rm -rf /app/src /app/tsconfig*.json /app/prisma /app/node_modules/.cache
+# Remove cache but keep source files (needed for TypeScript execution)
+RUN rm -rf /app/node_modules/.cache
 
 # Expose ports
 EXPOSE 3001
@@ -153,8 +153,8 @@ USER bun
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:3001/health || exit 1
 
-# Default command for production
-CMD ["bun", "run", "start:prod"]
+# Default command for production - run TypeScript directly
+CMD ["bun", "run", "src/index.ts"]
 
 # ==============================================
 # Builder Stage - For building the application
