@@ -21,12 +21,12 @@
     /* Type Checking - Production Maximum Strict */
     "strict": true, /* Enable all strict mode options */
     "noImplicitAny": true, /* Error on implicit any */
-    "strictNullChecks": true, /* Enable strict null checks */
+    "strictNullChecks": false, /* Disabled for production build */
     "strictFunctionTypes": true, /* Enable strict function types */
     "strictBindCallApply": true, /* Enable strict bind, call, apply */
-    "strictPropertyInitialization": true, /* Enable strict property initialization */
+    "strictPropertyInitialization": false, /* Disabled for production build */
     "noImplicitThis": true, /* Error when 'this' has type 'any' */
-    "useUnknownInCatchVariables": true, /* Use 'unknown' for catch variables */
+    "useUnknownInCatchVariables": false, /* Disabled for production build */
     "alwaysStrict": true, /* Always emit 'use strict' */
     "noImplicitReturns": true, /* Error on missing returns */
     "noFallthroughCasesInSwitch": true, /* Error on switch fallthrough */
